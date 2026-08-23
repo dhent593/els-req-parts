@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELS Computer - Service App</title>
+  <!-- Favicon -->
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=els.id&sz=32" type="image/x-icon">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- SheetJS & DataTables -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
+  <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
+  <!-- QR Code Lib for Printing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- JsBarcode for 1D Barcodes -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dataTables_wrapper .dataTables_filter { margin-bottom: 1rem; }
+    .dataTables_wrapper .dataTables_filter input { 
+      border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.5rem 1rem; outline: none;
+      background-color: #f8fafc; transition: all 0.2s; font-size: 0.875rem; width: 250px;
+    }
+    .dataTables_wrapper .dataTables_filter input:focus { 
+      border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.15); background-color: #fff;
+    }
+    .dataTables_wrapper .dataTables_length select { 
+      border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.3rem 0.5rem; 
+      outline: none; background-color: #f8fafc; font-size: 0.875rem; font-weight: 500;
+    }
+    .dataTables_wrapper .dataTables_length select:focus { border-color: #f97316; }
+    .dataTables_wrapper .dataTables_info { font-size: 0.875rem; color: #64748b; padding-top: 1rem; }
+    
+    table.dataTable.no-footer { border-bottom: none !important; }
+    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #f97316; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* DataTable Pagination Overrides */
+    .dataTables_wrapper .dataTables_paginate { padding-top: 1rem !important; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+      border: none !important; background: none !important; padding: 0.4rem 0.8rem !important; margin: 0 0.2rem !important;
+      border-radius: 0.5rem !important; font-size: 0.85rem !important; font-weight: 600 !important;
+      color: #64748b !important; transition: all 0.2s ease-in-out; cursor: pointer;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover { background: #f1f5f9 !important; color: #f97316 !important; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current, .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+      background: #fff7ed !important; color: #ea580c !important; border: 1px solid #ffedd5 !important; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.disabled { opacity: 0.5; cursor: not-allowed; }
+
+    
+    /* Print Styles */
+    @media print {
+      body * { visibility: hidden; }
+      #printContainer, #printContainer * { visibility: visible; }
+      #printContainer { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800">
+
+  <!-- PRINT CONTAINER -->
+  <div id="printContainer" class="hidden absolute top-0 left-0 bg-white z-[9999] p-4 w-full h-full"></div>
+
+  <!-- LOADING -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center hidden">
+    <div class="bg-white p-6 rounded-2xl shadow-2xl text-center">
+      <div class="loader mb-4"></div>
+      <p class="text-slate-700 font-medium" id="loadingText">Memproses Data...</p>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="loginView" class="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden">
+    <div class="absolute top-0 left-0 w-96 h-96 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 -translate-x-1/2 -translate-y-1/2"></div>
+    <div class="absolute bottom-0 right-0 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 translate-x-1/2 translate-y-1/2"></div>
+    
+    <div class="bg-white p-10 rounded-3xl shadow-xl w-full max-w-md relative z-10 animate-fade-in mx-4">
+      <div class="text-center mb-8">
+        <img src="https://www.google.com/s2/favicons?domain=els.id&sz=128" alt="ELS Logo" class="w-16 h-16 mx-auto mb-4 object-contain drop-shadow-sm">
+        <h1 class="text-2xl font-bold text-slate-900">ELS Computer</h1>
+        <p class="text-sm text-slate-500 font-medium mt-1">Service Division Portal</p>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="mb-5">
+          <label class="block text-slate-700 text-sm font-semibold mb-2">Username</label>
+          <input type="text" id="username" placeholder="Masukkan username Anda" class="w-full px-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-orange-500/50" required>
+        </div>
+        <div class="mb-6">
+          <label class="block text-slate-700 text-sm font-semibold mb-2">Password</label>
+          <div class="relative">
+            <input type="password" id="password" placeholder="Masukkan password Anda" class="w-full px-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-orange-500/50 pr-12" required>
+            <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+              <i id="eyeIcon" class="fas fa-eye text-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mb-8 flex items-center">
+          <input type="checkbox" id="rememberMe" checked class="w-4 h-4 text-orange-600 bg-slate-50 border-slate-300 rounded focus:ring-orange-500 cursor-pointer">
+          <label for="rememberMe" class="ml-2 text-sm font-medium text-slate-700 cursor-pointer">Ingat Saya</label>
+        </div>
+        <button type="submit" class="w-full bg-orange-600 text-white font-semibold py-3 px-4 rounded-xl hover:bg-orange-700 transition-all">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP VIEW -->
+  <div id="appView" class="hidden flex h-screen overflow-hidden bg-slate-50 relative">
+    
+    <!-- Sidebar Overlay (Mobile) -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-20 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
+
+    <!-- Chat Drawer Overlay -->
+    <div id="chatDrawerOverlay" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[40] hidden transition-opacity" onclick="toggleChatDrawer()"></div>
+
+    <!-- Chat Drawer -->
+    <div id="chatDrawer" class="fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-[50] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+      <!-- header -->
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
+        <div class="flex items-center gap-3">
+          <button id="btnBackChat" onclick="closeChatThread()" class="hidden text-slate-400 hover:text-orange-500 transition"><i class="fas fa-arrow-left"></i></button>
+          <h3 class="font-bold text-slate-800" id="chatDrawerTitle">Pesan</h3>
+        </div>
+        <button onclick="toggleChatDrawer()" class="text-slate-400 hover:text-red-500 transition w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50"><i class="fas fa-times"></i></button>
+      </div>
+      <!-- body -->
+      <div id="chatDrawerBody" class="flex-1 overflow-y-auto bg-slate-50 relative p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-center h-full text-slate-400"><i class="fas fa-comment-dots text-4xl mb-3 block text-center w-full"></i></div>
+      </div>
+      <!-- input -->
+      <div id="chatDrawerFooter" class="p-4 border-t border-slate-100 bg-white hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+         <form onsubmit="doSendChatMessage(event)" class="flex gap-2 relative">
+             <input type="text" id="chatInput" class="flex-1 border border-slate-200 rounded-full pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all bg-slate-50" placeholder="Ketik pesan..." required autocomplete="off">
+             <button type="submit" id="btnSendChat" class="absolute right-1 top-1 bottom-1 bg-orange-500 hover:bg-orange-600 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm"><i class="fas fa-paper-plane text-sm"></i></button>
+         </form>
+      </div>
+    </div>
+
+    <aside id="sidebar" class="w-72 bg-white flex flex-col shadow-lg z-30 border-r border-slate-100 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out">
+      <div class="p-6 flex items-center gap-4 border-b border-slate-100">
+        <img src="https://www.google.com/s2/favicons?domain=els.id&sz=128" alt="ELS Logo" class="w-10 h-10 object-contain drop-shadow-sm">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">ELS Service</h2>
+          <p class="text-xs font-semibold text-orange-600 tracking-wider" id="userRoleDisplay"></p>
+        </div>
+      </div>
+      <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-1" id="sidebarMenu"></nav>
+      <div class="p-4 border-t border-slate-100">
+        <button onclick="logout()" class="w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 font-medium py-3 rounded-xl transition-all"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full">
+      <header class="bg-white/80 backdrop-blur-md shadow-sm h-20 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar()" class="md:hidden w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl focus:outline-none transition">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h2 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight truncate" id="pageTitle">Dashboard</h2>
+        </div>
+        <div class="flex items-center gap-3 md:gap-4 bg-white px-3 md:px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
+          <button onclick="toggleChatDrawer()" class="relative text-slate-400 hover:text-orange-500 transition mr-2" title="Pesan">
+            <i class="fas fa-comment-dots text-xl"></i>
+            <span id="chatUnreadDot" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+          </button>
+          <div class="text-right">
+            <p class="text-sm font-bold text-slate-800 capitalize" id="userNameDisplay"></p>
+            <p class="text-xs text-slate-500 capitalize" id="userCabangDisplay"></p>
+          </div>
+          <div class="h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600"><i class="fas fa-user"></i></div>
+        </div>
+      </header>
+      <div class="flex-1 overflow-y-auto p-8 relative" id="contentArea"></div>
+    </main>
+  </div>
+
+  <script>
+    // ── Security: Mencegah XSS — escape semua data dari server sebelum inject ke HTML ──
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function forceRefresh(btn) {
+      if(!_currentView) return;
+      
+      const role = String(currentUser.role).toUpperCase();
+      const cabang = currentUser.cabang;
+      
+      let cacheKey = null;
+      let funcName = null;
+      let funcArgs = [];
+      let paintCallback = null;
+
+      // Tentukan konfigurasi berdasarkan halaman aktif saat ini
+      if(_currentView === 'Dashboard') {
+        cacheKey = role === 'PUSAT' ? 'dashboard_v3_PUSAT' : `dashboard_v3_${role}_${cabang}`;
+        funcName = 'getDashboardData';
+        funcArgs = [currentUser.role, currentUser.cabang, true];
+        paintCallback = (data) => { renderDashboard(); };
+      } else if(_currentView === 'Stock / Pricelist') {
+        cacheKey = 'masterData';
+        funcName = 'getMasterData';
+        funcArgs = [true];
+        paintCallback = (data) => { renderStock(); };
+      } else if(_currentView === 'SN Masuk') {
+        cacheKey = 'snMasukData';
+        funcName = 'getSNMasuk';
+        funcArgs = [true];
+        paintCallback = (data) => { renderSNMasuk(); };
+      } else if(_currentView === 'List Request Cabang') {
+        cacheKey = `reqCabang_PUSAT_${cabang}`;
+        funcName = 'getRequestCabang';
+        funcArgs = ['PUSAT', cabang, true];
+        paintCallback = (data) => { renderRequestTable('PUSAT'); };
+      } else if(_currentView === 'Riwayat Request Part') {
+        cacheKey = `reqCabang_CABANG_${cabang}`;
+        funcName = 'getRequestCabang';
+        funcArgs = ['CABANG', cabang, true];
+        paintCallback = (data) => { renderRequestTable('CABANG'); };
+      } else if(_currentView === 'Riwayat SN Keluar') {
+        cacheKey = 'riwayatSNCache';
+        funcName = 'getRiwayatSN';
+        funcArgs = [true];
+        paintCallback = (data) => { renderRiwayatPusat(); };
+      }
+      
+      const icon = $(btn).find('i');
+      icon.addClass('fa-spin text-orange-500');
+      
+      // Tarik data baru dari server secara diam-diam TANPA memicu skeleton/layar putih
+      if(funcName) {
+        google.script.run
+          .withSuccessHandler(res => {
+            icon.removeClass('fa-spin text-orange-500');
+            if(res.success) {
+              if(cacheKey) _setCache(cacheKey, res.data);
+              // Langsung render ulang fungsi tampilannya tanpa lewat loadView()
+              if(paintCallback) paintCallback(res.data);
+            } else {
+              Swal.fire({icon: 'error', title: 'Gagal Refresh', text: res.message, confirmButtonColor: '#f97316'});
+            }
+          })
+          .withFailureHandler(err => {
+            icon.removeClass('fa-spin text-orange-500');
+            Swal.fire({icon: 'error', title: 'Error Server', text: err.message || 'Gagal menyinkronkan data', confirmButtonColor: '#f97316'});
+          })
+          [funcName](...funcArgs);
+      } else {
+        icon.removeClass('fa-spin text-orange-500');
+      }
+    }
+
+    let currentUser = null;
+    let globalMasterData = [];
+    let cart = []; 
+    let buatsnCart = [];
+    let globalListCabang = [];
+    let _currentView = ''; // Nama halaman aktif — untuk membatalkan response dari halaman lama
+    const _CACHE_TTL = 120000; // 2 menit
+
+    // ── Cache helpers (SWR) ──
+    function _getCache(k) {
+      try {
+        const c = JSON.parse(localStorage.getItem('els_cache_' + k));
+        return (c && (Date.now() - c.ts < _CACHE_TTL)) ? c.data : null;
+      } catch(e) { return null; }
+    }
+    
+    function _getCacheSWR(k) {
+      try {
+        const c = JSON.parse(localStorage.getItem('els_cache_' + k));
+        if (!c) return { data: null, stale: true };
+        return { data: c.data, stale: (Date.now() - c.ts > _CACHE_TTL) };
+      } catch(e) { return { data: null, stale: true }; }
+    }
+    
+    function _setCache(k, d) {
+      try {
+        localStorage.setItem('els_cache_' + k, JSON.stringify({ data: d, ts: Date.now() }));
+      } catch(e) {}
+    }
+
+    function markLocalCacheStale(k) {
+      try {
+        const cStr = localStorage.getItem('els_cache_' + k);
+        if (cStr) {
+          const c = JSON.parse(cStr);
+          c.ts = 0; // force stale
+          localStorage.setItem('els_cache_' + k, JSON.stringify(c));
+        }
+      } catch(e) {}
+    }
+
+    function markLocalDashboardCacheStale() {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('els_cache_dashboard')) {
+            const cStr = localStorage.getItem(key);
+            if (cStr) {
+               const c = JSON.parse(cStr);
+               c.ts = 0;
+               localStorage.setItem(key, JSON.stringify(c));
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    // ── Skeleton loader ringan (tanpa overlay global) ──
+    function _skeleton() {
+      return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-pulse mt-2">
+        <div class="h-8 bg-slate-200 rounded-xl w-1/4 mb-6"></div>
+        <div class="w-full h-10 bg-slate-100 rounded-t-xl border-b border-slate-200 mb-4"></div>
+        <div class="space-y-4">
+          <div class="h-8 bg-slate-50 rounded-lg w-full"></div>
+          <div class="h-8 bg-slate-50 rounded-lg w-full"></div>
+          <div class="h-8 bg-slate-50 rounded-lg w-11/12"></div>
+          <div class="h-8 bg-slate-50 rounded-lg w-full"></div>
+        </div>
+      </div>`;
+    }
+
+    // ── Silent view fetcher — tidak tampilkan loading overlay ──
+    // Gunakan NAMA HALAMAN (bukan token angka) agar lebih reliable.
+    // Jika user sudah pindah halaman sebelum response tiba → response dibuang.
+    function runGoogleView(viewName, funcName, args, onSuccess) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (_currentView !== viewName) return; // user pindah halaman, abaikan
+          if (res.success) onSuccess(res);
+          else $('#contentArea').html(`<div class="text-center mt-10 p-6"><i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-3 block"></i><p class="text-red-500 font-medium">${res.message || 'Gagal memuat data'}</p></div>`);
+        })
+        .withFailureHandler(err => {
+          if (_currentView !== viewName) return;
+          $('#contentArea').html(`<div class="text-center mt-10 p-6"><i class="fas fa-server text-red-400 text-3xl mb-3 block"></i><p class="text-red-500 font-medium">${err.message || 'Error koneksi ke server'}</p></div>`);
+        })
+        [funcName](...args);
+    }
+
+    // ── SWR (Stale-While-Revalidate) Fetcher ──
+    function runGoogleSWR(viewName, cacheKey, funcName, args, paintFunc) {
+      const cache = _getCacheSWR(cacheKey);
+      if (cache.data) {
+        if ($('#contentArea').children('.animate-pulse').length > 0) $('#contentArea').empty();
+        paintFunc(cache.data); // Paint immediately from cache (stale or fresh)
+        
+        if (!cache.stale) return; // Jika masih fresh, hentikan fetch background untuk hemat kuota!
+        
+        // Fetch background secara diam-diam
+        google.script.run.withSuccessHandler(res => {
+          if (_currentView !== viewName) return;
+          if (res.success) {
+            if (JSON.stringify(cache.data) !== JSON.stringify(res.data)) {
+              _setCache(cacheKey, res.data); 
+              paintFunc(res.data);
+            } else {
+              _setCache(cacheKey, cache.data); // Perbarui timestamp
+            }
+          }
+        }).withFailureHandler(() => {})[funcName](...args);
+      } else {
+        // Tampilkan loading karena data sama sekali kosong
+        runGoogleView(viewName, funcName, args, res => { _setCache(cacheKey, res.data); paintFunc(res.data); });
+      }
+    }
+
+    // GLOBAL APP SCRIPT RUNNER (ERROR HANDLER)
+    function runGoogle(funcName, args = [], onSuccess) {
+      showLoader();
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoader();
+          if(res.success) onSuccess(res);
+          else Swal.fire({icon: 'error', title: 'Gagal', text: res.message, confirmButtonColor: '#f97316'});
+        })
+        .withFailureHandler(err => {
+          hideLoader();
+          Swal.fire({icon: 'error', title: 'Error Server', text: err.message || 'Terjadi kesalahan sistem', confirmButtonColor: '#f97316'});
+        })
+        [funcName](...args);
+    }
+
+    const _SESSION_MAX_AGE_MS = 10 * 60 * 60 * 1000; // 10 jam = 36.000.000 ms
+
+    window.onload = () => {
+      const storedUser = localStorage.getItem('els_user') || sessionStorage.getItem('els_user');
+      if (storedUser) {
+        // Cek session expiry hanya untuk localStorage (opsi "Ingat Saya")
+        const isRemembered = !!localStorage.getItem('els_user');
+        if (isRemembered) {
+          const loginTime = parseInt(localStorage.getItem('els_login_time') || '0');
+          if (loginTime && (Date.now() - loginTime > _SESSION_MAX_AGE_MS)) {
+            localStorage.removeItem('els_user');
+            localStorage.removeItem('els_login_time');
+            setTimeout(() => Swal.fire({
+              icon: 'info', title: 'Sesi Berakhir',
+              text: 'Sesi Anda telah berakhir (10 jam). Silakan login kembali.',
+              confirmButtonColor: '#f97316'
+            }), 300);
+            return;
+          }
+        }
+        currentUser = JSON.parse(storedUser);
+        showApp();
+      }
+      
+      setInterval(() => {
+        if (currentUser && !$('#chatDrawer').hasClass('translate-x-0')) {
+          checkUnreadChat();
+        }
+      }, 60000);
+      
+      // Auto-refresh setiap 2 jam — gunakan silent refresh (tanpa skeleton/flicker)
+      setInterval(() => {
+        if (_currentView && currentUser) {
+          const safeViews = ['Dashboard', 'List Request Cabang', 'Riwayat SN Keluar', 'Riwayat Request Part', 'Stock / Pricelist', 'SN Masuk'];
+          if (safeViews.includes(_currentView)) _silentAutoRefresh();
+        }
+      }, 7200000);
+    };
+
+    // Silent refresh untuk auto-refresh 2 jam — tidak memunculkan skeleton atau loading overlay
+    function _silentAutoRefresh() {
+      const viewWhenStarted = _currentView;
+      const role = String(currentUser.role).toUpperCase();
+      const cabang = currentUser.cabang;
+      const cfg = {
+        'Dashboard':            { f:'getDashboardData',  a:[currentUser.role,cabang,true], k:role==='PUSAT'?'dashboard_v3_PUSAT':`dashboard_v3_${role}_${cabang}`, p:()=>renderDashboard() },
+        'Stock / Pricelist':    { f:'getMasterData',     a:[true],                          k:'masterData',                                                           p:()=>renderStock() },
+        'SN Masuk':             { f:'getSNMasuk',        a:[true],                          k:'snMasukData',                                                          p:()=>renderSNMasuk() },
+        'List Request Cabang':  { f:'getRequestCabang',  a:['PUSAT',cabang,true],            k:`reqCabang_PUSAT_${cabang}`,                                            p:()=>renderRequestTable('PUSAT') },
+        'Riwayat Request Part': { f:'getRequestCabang',  a:['CABANG',cabang,true],           k:`reqCabang_CABANG_${cabang}`,                                           p:()=>renderRequestTable('CABANG') },
+        'Riwayat SN Keluar':    { f:'getRiwayatSN',      a:[true],                          k:'riwayatSNCache',                                                       p:()=>renderRiwayatPusat() },
+      }[viewWhenStarted];
+      if (!cfg) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (_currentView !== viewWhenStarted) return; // user pindah halaman, abaikan
+          if (res.success) { _setCache(cfg.k, res.data); cfg.p(); }
+        })
+        .withFailureHandler(() => {})
+        [cfg.f](...cfg.a);
+    }
+
+    function togglePassword() {
+      const pInput = document.getElementById('password');
+      const eIcon = document.getElementById('eyeIcon');
+      if (pInput.type === 'password') {
+        pInput.type = 'text';
+        eIcon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        pInput.type = 'password';
+        eIcon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+    }
+
+    function showLoader(txt = 'Memproses Data...') { $('#loadingText').text(txt); $('#loadingOverlay').removeClass('hidden'); }
+    function hideLoader() { $('#loadingOverlay').addClass('hidden'); }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      runGoogle('doLogin', [$('#username').val(), $('#password').val()], res => {
+        currentUser = res.user;
+        if ($('#rememberMe').is(':checked')) {
+          localStorage.setItem('els_user', JSON.stringify(currentUser));
+          localStorage.setItem('els_login_time', Date.now().toString()); // untuk session expiry 10 jam
+        } else {
+          sessionStorage.setItem('els_user', JSON.stringify(currentUser));
+          // sessionStorage otomatis terhapus saat browser ditutup — tidak butuh expiry manual
+        }
+        showApp();
+      });
+    }
+
+    function logout() {
+      Swal.fire({
+        title: 'Konfirmasi Logout', text: 'Yakin ingin keluar dari aplikasi?',
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'Ya, Logout', cancelButtonText: 'Batal', confirmButtonColor: '#ef4444'
+      }).then(r => {
+        if(r.isConfirmed) {
+          sessionStorage.removeItem('els_user');
+          localStorage.removeItem('els_user');
+          currentUser = null; cart = []; buatsnCart = [];
+          $('#appView').addClass('hidden'); $('#loginView').removeClass('hidden');
+        }
+      });
+    }
+
+    function preloadAllData() {
+      const role = String(currentUser.role).toUpperCase();
+      const cabang = currentUser.cabang;
+      
+      // 0. Dashboard (yang paling sering dibuka)
+      const dashKey = role === 'PUSAT' ? 'dashboard_v3_PUSAT' : `dashboard_v3_${role}_${cabang}`;
+      if(!_getCache(dashKey)) {
+        google.script.run.withSuccessHandler(res => { if(res.success) _setCache(dashKey, res.data); }).getDashboardData(currentUser.role, cabang);
+      }
+      
+      // 1. Master Data (Pusat & Cabang butuh ini)
+      if(!_getCache('masterData')) {
+        google.script.run.withSuccessHandler(res => { if(res.success) _setCache('masterData', res.data); }).getMasterData();
+      }
+      
+      // 2. Data Request Cabang
+      const reqCacheKey = `reqCabang_${role}_${cabang}`;
+      if(!_getCache(reqCacheKey)) {
+        google.script.run.withSuccessHandler(res => { if(res.success) _setCache(reqCacheKey, res.data); }).getRequestCabang(role, cabang);
+      }
+      
+      // 3. Khusus Pusat
+      if(role === 'PUSAT') {
+        if(!_getCache('snMasukData')) {
+          google.script.run.withSuccessHandler(res => { if(res.success) _setCache('snMasukData', res.data); }).getSNMasuk();
+        }
+        if(!_getCache('riwayatSNCache')) {
+          google.script.run.withSuccessHandler(res => { if(res.success) _setCache('riwayatSNCache', res.data); }).getRiwayatSN();
+        }
+      }
+    }
+
+    function showApp() {
+      $('#loginView').addClass('hidden'); $('#appView').removeClass('hidden');
+      $('#userNameDisplay').text(currentUser.username);
+      $('#userRoleDisplay').text(currentUser.role.toUpperCase());
+      $('#userCabangDisplay').text(currentUser.cabang);
+      renderSidebar();
+      checkUnreadChat();
+      
+      // Load Dashboard terlebih dahulu (On-Demand) tanpa berebut koneksi
+      loadView('Dashboard');
+      
+      // Pre-warm local cache di background setelah 3 detik agar halaman lain langsung instant
+      setTimeout(() => {
+        preloadAllData();
+      }, 3000);
+    }
+
+    function renderSidebar() {
+      let menus = [];
+      const role = String(currentUser.role).toUpperCase();
+      
+      if (role === 'PUSAT') {
+        menus = [
+          { name: 'Dashboard', icon: 'fa-chart-line' },
+          { name: 'Buat SN', icon: 'fa-barcode' },
+          { name: 'SN Masuk', icon: 'fa-box-open' },
+          { name: 'Stock / Pricelist', icon: 'fa-tags' },
+          { name: 'List Request Cabang', icon: 'fa-clipboard-list' },
+          { name: 'Riwayat SN Keluar', icon: 'fa-history' }
+        ];
+      } else {
+        menus = [
+          { name: 'Dashboard', icon: 'fa-chart-line' },
+          { name: 'Stock / Pricelist', icon: 'fa-tags' },
+          { name: 'Request Part', icon: 'fa-cart-plus' },
+          { name: 'Riwayat Request Part', icon: 'fa-history' }
+        ];
+      }
+
+      let html = menus.map(m => `
+        <a href="#" onclick="loadView('${m.name}', this)" class="menu-item flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition-all font-medium mb-1 group">
+          <i class="fas ${m.icon} w-6 text-center text-slate-400 group-hover:text-orange-500"></i><span>${m.name}</span>
+        </a>`).join('');
+      $('#sidebarMenu').html(html);
+      setTimeout(() => { $('#sidebarMenu a').first().addClass('bg-orange-50 text-orange-600').find('i').removeClass('text-slate-400').addClass('text-orange-500'); }, 50);
+    }
+
+    function loadView(viewName, el = null) {
+      _currentView = viewName; // Catat halaman aktif sekarang
+
+      $('#pageTitle').text(viewName);
+      if(el) {
+        $('.menu-item').removeClass('bg-orange-50 text-orange-600').find('i').removeClass('text-orange-500').addClass('text-slate-400');
+        $(el).addClass('bg-orange-50 text-orange-600').find('i').removeClass('text-slate-400').addClass('text-orange-500');
+        
+        // Auto-close sidebar on mobile after clicking menu
+        if (window.innerWidth < 768) {
+          toggleSidebar();
+        }
+      }
+
+      // Hanya tampilkan skeleton jika tidak ada cache untuk halaman tersebut
+      const _hasCacheForView = (vn) => {
+        const keyMap = {
+          'Dashboard': (String(currentUser.role).toUpperCase() === 'PUSAT' ? 'dashboard_v3_PUSAT' : `dashboard_v3_${String(currentUser.role).toUpperCase()}_${currentUser.cabang}`),
+          'Stock / Pricelist': 'masterData',
+          'SN Masuk': 'snMasukData',
+          'List Request Cabang': `reqCabang_PUSAT_${currentUser.cabang}`,
+          'Riwayat Request Part': `reqCabang_CABANG_${currentUser.cabang}`,
+          'Riwayat SN Keluar': 'riwayatSNCache',
+        };
+        const k = keyMap[vn];
+        if (!k) return false;
+        try {
+          const c = JSON.parse(localStorage.getItem('els_cache_' + k));
+          return !!(c && c.data);
+        } catch(e) { return false; }
+      };
+
+      // Destroy DataTable aktif agar tidak konflik
+      ['#stockTable','#tSn','#rTbl','#rwTbl'].forEach(id => {
+        if($.fn.DataTable.isDataTable(id)) try { $(id).DataTable().destroy(); } catch(e){}
+      });
+      // Tampilkan skeleton hanya jika belum ada cache (hindari kedipan)
+      if (!_hasCacheForView(viewName)) $('#contentArea').html(_skeleton());
+
+      // Render halaman — konten lama sudah bersih, aman dari race condition
+      if(viewName === 'Dashboard')             renderDashboard();
+      else if(viewName === 'Stock / Pricelist') renderStock();
+      else if(viewName === 'Buat SN')           renderBuatSN();
+      else if(viewName === 'SN Masuk')          renderSNMasuk();
+      else if(viewName === 'Request Part')      renderRequestPart();
+      else if(viewName === 'List Request Cabang')  renderRequestTable('PUSAT');
+      else if(viewName === 'Riwayat Request Part') renderRequestTable('CABANG');
+      else if(viewName === 'Riwayat SN Keluar')    renderRiwayatPusat();
+    }
+
+    // ================= VIEWS ================= //
+
+    function toggleSidebar() {
+      $('#sidebar').toggleClass('-translate-x-full');
+      $('#sidebarOverlay').toggleClass('hidden');
+    }
+
+    // 1. DASHBOARD
+    function renderDashboard() {
+      const VN = 'Dashboard';
+      // Key harus sama persis dengan server (Code.gs baris 85)
+      const role = String(currentUser.role).toUpperCase();
+      const cacheKey = role === 'PUSAT' ? 'dashboard_v3_PUSAT' : `dashboard_v3_${role}_${currentUser.cabang}`;
+      
+      const _paintDashboard = (data) => {
+        globalListCabang = data.listCabang || [];
+        const role = String(currentUser.role).toUpperCase();
+        
+        // Welcome Card di Atas
+        let html = `
+          <div class="flex flex-col md:flex-row gap-6 mb-8 animate-fade-in">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex-1">
+              <h3 class="text-xl font-bold text-slate-800 mb-2">Selamat Datang, <span class="capitalize">${currentUser.username}</span>!</h3>
+              <p class="text-slate-500">Anda berada di portal sistem pengelolaan Administrasi Service ELS Computer.</p>
+            </div>
+            ${role === 'PUSAT' ? `
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full md:w-80 border-t-4 border-t-blue-500 cursor-pointer hover:bg-slate-50 transition flex flex-col justify-center" onclick="openUserManagement()">
+              <h4 class="font-bold text-slate-700 mb-1"><i class="fas fa-users-cog text-blue-500 mr-2 text-lg"></i>Manajemen User</h4>
+              <p class="text-xs text-slate-500">Lihat, tambah, hapus user & ganti password.</p>
+            </div>` : ''}
+          </div>`;
+
+        // Card Statistik di Bawah
+        html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-fade-in" style="animation-delay: 0.1s;">';
+        if(role === 'PUSAT') {
+          html += generateCard('Total Cabang', data.totalCabang, 'fa-store', 'bg-orange-500');
+          html += generateCard('Request Masuk', data.totalRequest, 'fa-clipboard-list', 'bg-blue-500');
+          html += generateCard('SN Masuk', data.totalSNMasuk, 'fa-box', 'bg-emerald-500');
+          html += '</div>';
+          
+          if(data.activeOrders && data.activeOrders.length > 0) {
+            html += `
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-fade-in" style="animation-delay: 0.2s;">
+              <h3 class="text-lg font-bold text-slate-800 mb-4"><i class="fas fa-clock text-orange-500 mr-2"></i>Orderan Cabang Belum Selesai</h3>
+              <div class="overflow-x-auto"><table class="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200">
+                    <th class="p-3 font-semibold text-slate-600">ID Request</th>
+                    <th class="p-3 font-semibold text-slate-600">Tgl</th>
+                    <th class="p-3 font-semibold text-slate-600">Cabang</th>
+                    <th class="p-3 font-semibold text-slate-600">Item</th>
+                    <th class="p-3 font-semibold text-slate-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.activeOrders.map(o => `
+                    <tr class="border-b hover:bg-slate-50 transition-colors">
+                      <td class="p-3 font-mono text-xs text-orange-600 font-bold">${escapeHtml(o.id)}</td>
+                      <td class="p-3 whitespace-nowrap">${new Date(o.tanggal).toLocaleDateString('id')}</td>
+                      <td class="p-3 font-bold text-slate-700">${escapeHtml(o.cabang)}</td>
+                      <td class="p-3 max-w-xs truncate" title="${escapeHtml(o.items)}">${escapeHtml(o.items)}</td>
+                      <td class="p-3"><span class="px-2 py-1 rounded-md text-xs font-bold text-orange-700 bg-orange-100">${escapeHtml(o.status)}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table></div>
+            </div>`;
+          } else {
+             html += `
+             <div class="bg-slate-50 rounded-2xl border border-slate-100 p-8 text-center animate-fade-in" style="animation-delay: 0.2s;">
+               <i class="fas fa-check-circle text-4xl text-emerald-400 mb-3 block"></i>
+               <h3 class="text-lg font-bold text-slate-700">Semua Orderan Selesai</h3>
+               <p class="text-slate-500 text-sm">Tidak ada request cabang yang perlu dialokasikan saat ini.</p>
+             </div>`;
+          }
+          
+          if(data.topParts && data.topParts.length > 0) {
+            html += `
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-fade-in mt-8" style="animation-delay: 0.3s;">
+              <h3 class="text-lg font-bold text-slate-800 mb-4"><i class="fas fa-fire text-orange-500 mr-2"></i>Daftar Part Yang Sering Masuk/Diorder (Top 15)</h3>
+              <div class="overflow-x-auto"><table class="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200">
+                    <th class="p-3 font-semibold text-slate-600">Kode Barang</th>
+                    <th class="p-3 font-semibold text-slate-600">Nama Barang</th>
+                    <th class="p-3 font-semibold text-slate-600 text-center">Frekuensi Masuk</th>
+                    <th class="p-3 font-semibold text-slate-600 text-center">Stok Saat Ini</th>
+                    <th class="p-3 font-semibold text-slate-600 text-center">Status Stok</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.topParts.map(p => {
+                    const lowStock = p.stok < 5;
+                    return `
+                    <tr class="border-b hover:bg-slate-50 transition-colors">
+                      <td class="p-3 font-mono text-xs text-slate-500 font-bold">${p.kode}</td>
+                      <td class="p-3 font-bold text-slate-700">${p.nama}</td>
+                      <td class="p-3 text-center"><span class="px-2 py-1 rounded-md text-xs font-bold text-blue-700 bg-blue-100">${p.count}x</span></td>
+                      <td class="p-3 text-center font-bold ${lowStock ? 'text-red-600' : 'text-emerald-600'}">${p.stok}</td>
+                      <td class="p-3 text-center">${lowStock ? '<span class="px-2 py-1 rounded-md text-xs font-bold text-red-700 bg-red-100"><i class="fas fa-exclamation-triangle mr-1"></i> Restock</span>' : '<span class="px-2 py-1 rounded-md text-xs font-bold text-emerald-700 bg-emerald-100"><i class="fas fa-check mr-1"></i> Aman</span>'}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table></div>
+            </div>`;
+          }
+        } else {
+          // Menyesuaikan ikon dashboard agar selaras dengan ikon sidebar CABANG
+          html += generateCard('Order Bulan Ini', data.orderBulanIni, 'fa-cart-plus', 'bg-orange-500');
+          html += generateCard('Dalam Proses', data.proses, 'fa-history', 'bg-blue-500');
+          html += generateCard('Selesai', data.selesai, 'fa-check-circle', 'bg-emerald-500');
+          html += '</div>';
+        }
+        
+        
+        if(_currentView !== VN) return;
+        $('#contentArea').html(html);
+      };
+
+      runGoogleSWR(VN, cacheKey, 'getDashboardData', [currentUser.role, currentUser.cabang], _paintDashboard);
+    }
+
+    function generateCard(title, val, icon, color) {
+      return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex justify-between hover:shadow-md transition">
+        <div><p class="text-sm text-slate-500 font-semibold uppercase mb-1">${title}</p><p class="text-4xl font-bold">${val||0}</p></div>
+        <div class="w-14 h-14 ${color} rounded-full flex items-center justify-center text-white text-2xl shadow-md"><i class="fas ${icon}"></i></div>
+      </div>`;
+    }
+
+    // Manajemen User
+    function openUserManagement() {
+      runGoogle('getAllUsers', [], res => {
+        let tbody = res.data.map(u => `
+          <tr class="border-b hover:bg-slate-50">
+            <td class="p-3 font-semibold">${u.username}</td>
+            <td class="p-3 text-xs"><span class="bg-slate-100 px-2 py-1 rounded">${u.role}</span></td>
+            <td class="p-3">${u.cabang}</td>
+            <td class="p-3 text-right">
+              <button onclick="doChangePassword('${u.username}')" class="text-blue-500 hover:text-blue-700 mr-3" title="Ganti Password"><i class="fas fa-key"></i></button>
+              <button onclick="doDeleteUser('${u.username}')" class="text-red-500 hover:text-red-700" title="Hapus User"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `).join('');
+
+        Swal.fire({
+          title: '<div class="text-left font-bold text-lg border-b pb-3 mb-2">Manajemen User</div>',
+          html: `
+            <div class="text-left mb-4">
+              <button onclick="doAddUser()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl text-sm font-semibold transition"><i class="fas fa-plus mr-2"></i>Tambah User Baru</button>
+            </div>
+            <div class="max-h-72 overflow-y-auto text-sm text-left border rounded-xl">
+              <table class="w-full text-left">
+                <thead class="bg-slate-50 sticky top-0 shadow-sm">
+                  <tr><th class="p-3">Username</th><th class="p-3">Role</th><th class="p-3">Cabang</th><th class="p-3 text-right">Aksi</th></tr>
+                </thead>
+                <tbody>${tbody}</tbody>
+              </table>
+            </div>
+          `,
+          width: '650px',
+          showConfirmButton: false,
+          showCloseButton: true,
+          customClass: { popup: 'rounded-2xl' }
+        });
+      });
+    }
+
+    function doAddUser() {
+      Swal.fire({
+        title: 'Buat Akun Baru',
+        html: `
+          <div class="text-left text-sm space-y-4 mt-4">
+            <input type="text" id="nuUser" placeholder="Username" class="w-full p-3 border rounded-xl focus:outline-none focus:border-blue-500">
+            <input type="password" id="nuPass" placeholder="Password" class="w-full p-3 border rounded-xl focus:outline-none focus:border-blue-500">
+            <select id="nuRole" class="w-full p-3 border rounded-xl focus:outline-none focus:border-blue-500" onchange="$('#nuCabang').val(this.value==='Pusat'?'Pusat':'')">
+              <option value="Cabang">Cabang</option><option value="Pusat">Pusat</option>
+            </select>
+            <input type="text" id="nuCabang" placeholder="Nama Cabang (ex: YOGYAKARTA)" class="w-full p-3 border rounded-xl focus:outline-none focus:border-blue-500 uppercase">
+          </div>`,
+        showCancelButton: true, confirmButtonText: 'Simpan',
+        preConfirm: () => {
+          const u=$('#nuUser').val(), p=$('#nuPass').val(), r=$('#nuRole').val(), c=$('#nuCabang').val();
+          if(!u||!p||!c) { Swal.showValidationMessage('Semua form wajib diisi'); return false; }
+          return {u, p, r, c};
+        }
+      }).then(res => {
+        if(res.isConfirmed) {
+          runGoogle('createNewUser', [res.value.u, res.value.p, res.value.r, res.value.c], r => {
+            Swal.fire('Sukses', r.message, 'success').then(() => openUserManagement());
+          });
+        }
+      });
+    }
+
+    function doChangePassword(username) {
+      Swal.fire({
+        title: 'Ganti Password',
+        text: `Ubah password untuk user ${username}`,
+        input: 'password',
+        inputPlaceholder: 'Ketik password baru...',
+        inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        preConfirm: (newPass) => {
+          if (!newPass) Swal.showValidationMessage('Password tidak boleh kosong');
+          return newPass;
+        }
+      }).then((res) => {
+        if (res.isConfirmed) {
+          runGoogle('changeUserPassword', [username, res.value], r => {
+            Swal.fire('Sukses', r.message, 'success').then(() => openUserManagement());
+          });
+        }
+      });
+    }
+
+    function doDeleteUser(username) {
+      if (username === currentUser.username) return Swal.fire('Ditolak', 'Tidak bisa menghapus akun Anda sendiri!', 'error');
+      Swal.fire({
+        title: 'Hapus User?',
+        text: `Yakin ingin menghapus akun ${username}? Tindakan ini tidak bisa dibatalkan.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          runGoogle('deleteUserAccount', [username], r => {
+            Swal.fire('Terhapus', r.message, 'success').then(() => openUserManagement());
+          });
+        }
+      });
+    }
+
+    // 2. STOCK — dengan cache masterData untuk kecepatan kunjungan berikutnya
+    function renderStock() {
+      const VN = 'Stock / Pricelist';
+      function _paintStock(data) {
+        globalMasterData = data;
+        _setCache('masterData', data);
+        const role = String(currentUser.role).toUpperCase();
+        let html = `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-fade-in">`;
+        if(role === 'PUSAT') {
+          html += `
+          <div class="flex flex-col md:flex-row gap-4 mb-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
+            <button onclick="openImportModal('pembelian')" class="flex-1 bg-white border-2 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50 text-blue-600 p-4 rounded-xl flex items-center justify-center gap-4 transition-all group">
+              <div class="w-12 h-12 bg-blue-100 group-hover:bg-blue-200 rounded-full flex items-center justify-center text-2xl transition-colors"><i class="fas fa-file-excel"></i></div>
+              <div class="text-left"><p class="font-bold text-sm">Import Pembelian</p><p class="text-xs text-slate-500 font-normal mt-0.5">Klik untuk upload file excel</p></div>
+            </button>
+            <button onclick="openImportModal('stok')" class="flex-1 bg-white border-2 border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 p-4 rounded-xl flex items-center justify-center gap-4 transition-all group">
+              <div class="w-12 h-12 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center text-2xl transition-colors"><i class="fas fa-file-excel"></i></div>
+              <div class="text-left"><p class="font-bold text-sm">Import Stok Seri</p><p class="text-xs text-slate-500 font-normal mt-0.5">Klik untuk upload file excel</p></div>
+            </button>
+          </div>`;
+        }
+        html += `<table id="stockTable" class="w-full text-left border-collapse text-sm">
+          <thead class="sticky top-0 z-10 bg-slate-50 shadow-sm"><tr class="border-b border-slate-200">
+            <th class="p-4 font-semibold">Kode Barang</th><th class="p-4 font-semibold">Nama Barang</th>
+            ${role === 'PUSAT' ? `<th class="p-4 font-semibold">Harga Modal</th>` : ''}
+            <th class="p-4 font-semibold">Stok</th>${role === 'CABANG' ? `<th class="p-4 text-center">Aksi</th>` : ''}
+          </tr></thead><tbody>
+          ${data.map(i => `
+            <tr class="border-b hover:bg-slate-50">
+              <td class="p-4 font-mono text-xs text-slate-500">${i['Kode Barang']||i['kode barang']||'-'}</td>
+              <td class="p-4 font-medium">${i['Nama Barang']||i['nama barang']||'-'}</td>
+              ${role === 'PUSAT' ? `<td class="p-4 group">
+                <div class="flex items-center justify-between gap-2 max-w-[120px]">
+                  <span class="harga-text font-medium text-slate-700" data-kode="${i['Kode Barang']||i['kode barang']}">Rp ${Number((i['Harga Modal']||i['harga modal'])||0).toLocaleString('id')}</span>
+                  <button data-harga="${i['Harga Modal']||i['harga modal']||0}" onclick="editHargaModal(this, '${i['Kode Barang']||i['kode barang']}', '${String(i['Nama Barang']).replace(/'/g,"\\'")}')" class="text-slate-300 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Edit Harga"><i class="fas fa-pencil-alt"></i></button>
+                </div>
+              </td>` : ''}
+              <td class="p-4"><span class="px-2 py-1 rounded-md text-xs font-bold ${Number(i['Stok']||i['stok'])>0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}">${i['Stok']||i['stok']||0}</span></td>
+              ${role === 'CABANG' ? `<td class="p-4 text-center"><button onclick="addToCart('${i['Kode Barang']||i['kode barang']}','${String(i['Nama Barang']).replace(/'/g,"\\'")}')" class="bg-orange-100 text-orange-600 px-3 py-2 rounded-lg text-xs font-semibold"><i class="fas fa-cart-plus"></i> Request</button></td>` : ''}
+            </tr>`).join('')}
+          </tbody></table>`;
+        
+        if(_currentView !== VN) return;
+        
+        // Hancurkan instance DataTable lama sebelum menimpa HTML agar tidak memory leak
+        if($.fn.DataTable.isDataTable('#stockTable')) try { $('#stockTable').DataTable().destroy(); } catch(e){}
+        
+        $('#contentArea').html(html);
+        $('#stockTable').DataTable({ responsive: true, paging: false, info: true, language: { search: '', searchPlaceholder: 'Cari data...' } });
+        
+        // Wrap tabelnya saja agar search bar tetap di atas dan tidak ikut ter-scroll
+        $('#stockTable').wrap('<div class="max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200 mt-4"></div>');
+        
+        // Ubah tampilan search bar menjadi full width
+        const filter = $('#stockTable_filter');
+        filter.css({'float': 'none', 'text-align': 'left'});
+        filter.addClass('flex w-full');
+        filter.find('label').addClass('w-full flex items-center');
+        filter.find('input').addClass('w-full !ml-0 rounded-xl px-4 py-2 border-slate-300 focus:border-blue-500 focus:ring-blue-500').attr('placeholder', 'Cari stok barang di sini...');
+
+        if($('#stockTable_filter .btn-refresh').length === 0) {
+          filter.append(`<button onclick="forceRefresh(this)" class="btn-refresh ml-3 bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl border border-slate-200 transition-colors flex-shrink-0" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>`);
+        }
+      }
+
+      // Tampilkan cache dulu jika ada (instant), lalu refresh di background
+      const cache = _getCacheSWR('masterData');
+      if(cache.data) {
+        _paintStock(cache.data);
+        if(!cache.stale) return;
+        
+        // Refresh di background tanpa skeleton
+        google.script.run
+          .withSuccessHandler(res => { 
+            if(res.success && _currentView === VN) {
+              if (JSON.stringify(cache.data) !== JSON.stringify(res.data)) {
+                _paintStock(res.data); 
+              } else {
+                _setCache('masterData', cache.data);
+              }
+            }
+          })
+          .withFailureHandler(() => {})
+          .getMasterData();
+      } else {
+        runGoogleView(VN, 'getMasterData', [], res => _paintStock(res.data));
+      }
+    }
+
+    function openImportModal(type) {
+      const title = type === 'pembelian' ? 'Import Pembelian' : 'Import Stok Seri';
+      const color = type === 'pembelian' ? 'text-blue-500' : 'text-emerald-500';
+      const bg = type === 'pembelian' ? 'bg-blue-50 hover:bg-blue-100' : 'bg-emerald-50 hover:bg-emerald-100';
+      const border = type === 'pembelian' ? 'border-blue-200' : 'border-emerald-200';
+      
+      Swal.fire({
+        title: `<div class="text-lg font-bold text-slate-800 border-b pb-3 text-left">${title}</div>`,
+        html: `
+          <div class="mt-4 text-left">
+            <p class="text-sm text-slate-500 mb-4">Seret dan lepaskan file Excel (.xlsx, .xls) ke area di bawah ini, atau klik untuk memilih file dari komputer Anda.</p>
+            <div id="dropZone" class="w-full h-40 border-2 border-dashed ${border} ${bg} rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden group">
+              <i class="fas fa-cloud-upload-alt text-4xl ${color} mb-3 pointer-events-none group-hover:scale-110 transition-transform"></i>
+              <p class="text-slate-600 font-medium pointer-events-none text-sm px-4 text-center">Pilih atau Tarik File Excel Kesini</p>
+              <input type="file" id="fileInput" accept=".xlsx, .xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            </div>
+            <div id="fileNameDisplay" class="hidden mt-4 p-3 bg-slate-100 rounded-xl border border-slate-200 flex items-center gap-3">
+              <i class="fas fa-file-excel text-emerald-600 text-xl"></i>
+              <p id="fileNameText" class="text-sm font-bold text-slate-700 truncate"></p>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-upload mr-2"></i> Proses Import',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: type === 'pembelian' ? '#3b82f6' : '#10b981',
+        customClass: { popup: 'rounded-2xl' },
+        didOpen: () => {
+          const dropZone = document.getElementById('dropZone');
+          const fileInput = document.getElementById('fileInput');
+          const fileNameDisplay = document.getElementById('fileNameDisplay');
+          const fileNameText = document.getElementById('fileNameText');
+          
+          ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false));
+          ['dragenter', 'dragover'].forEach(evt => dropZone.addEventListener(evt, () => dropZone.classList.add('border-orange-500', 'bg-orange-50'), false));
+          ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, () => dropZone.classList.remove('border-orange-500', 'bg-orange-50'), false));
+          
+          dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if(dt.files && dt.files.length > 0) {
+              fileInput.files = dt.files;
+              fileNameText.innerText = dt.files[0].name;
+              fileNameDisplay.classList.remove('hidden');
+            }
+          }, false);
+          
+          fileInput.addEventListener('change', function() {
+            if(this.files && this.files.length > 0) {
+              fileNameText.innerText = this.files[0].name;
+              fileNameDisplay.classList.remove('hidden');
+            }
+          });
+        },
+        preConfirm: () => {
+          const fileInput = document.getElementById('fileInput');
+          if(!fileInput.files || fileInput.files.length === 0) {
+            Swal.showValidationMessage('Silakan pilih file Excel terlebih dahulu');
+            return false;
+          }
+          return fileInput.files[0];
+        }
+      }).then((result) => {
+        if(result.isConfirmed) processExcelFile(result.value, type);
+      });
+    }
+
+    function processExcelFile(file, type) {
+      Swal.fire({
+        title: '<div class="text-lg font-bold text-slate-800">Memproses Data...</div>',
+        html: `
+          <div class="mt-4 text-left">
+            <div class="flex justify-between text-sm mb-2">
+              <span id="pgText" class="font-medium text-slate-600">Membaca file lokal...</span>
+              <span id="pgPct" class="font-bold text-orange-500">0%</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+              <div id="pgBar" class="bg-orange-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        `,
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          const updatePg = (pct, text) => {
+            if(document.getElementById('pgBar')) {
+              document.getElementById('pgBar').style.width = pct + '%';
+              document.getElementById('pgText').innerText = text;
+              document.getElementById('pgPct').innerText = pct + '%';
+            }
+          };
+          
+          setTimeout(() => updatePg(15, 'Menganalisis file Excel...'), 200);
+          
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            setTimeout(() => updatePg(35, 'Mengekstrak baris & kolom...'), 500);
+            
+            try {
+              const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+              const parsed = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {range: 2}); 
+              
+              if(parsed.length === 0) {
+                return Swal.fire('File Kosong', 'File Excel tidak memiliki baris data yang valid.', 'error');
+              }
+              
+              setTimeout(() => updatePg(70, 'Mensinkronisasi dengan Server...'), 800);
+              
+              google.script.run
+                .withSuccessHandler(r => {
+                  updatePg(100, 'Selesai!');
+                  setTimeout(() => {
+                    if(r.success) {
+                      let dupHtml = '';
+                      if (r.duplicates && r.duplicates.length > 0) {
+                        dupHtml = `<div class="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                     <p class="text-sm font-bold text-red-700 mb-1"><i class="fas fa-exclamation-triangle"></i> Ditemukan ${r.duplicates.length} SN Ganda (Abaikan):</p>
+                                     <div class="max-h-24 overflow-y-auto text-xs font-mono text-red-600 bg-white p-2 rounded border border-red-100">
+                                       ${r.duplicates.join('<br>')}
+                                     </div>
+                                   </div>`;
+                      }
+                      
+                      Swal.fire({
+                        icon: 'success',
+                        title: 'Import Selesai!',
+                        html: `<div class="text-left mt-2 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                                <ul class="list-disc list-inside text-sm text-emerald-800 space-y-1">
+                                  <li>Data Baru (Diinput): <b class="text-lg">${r.newCount}</b> Item</li>
+                                  <li>Data Terupdate (Stok Naik): <b class="text-lg">${r.updatedCount}</b> Item</li>
+                                </ul>
+                               </div>
+                               ${dupHtml}`,
+                        confirmButtonText: 'Tutup'
+                      }).then(() => {
+                        // Reload table data
+                        runGoogleView('Stock / Pricelist', 'getMasterData', [], res => {
+                          globalMasterData = res.data; _setCache('masterData', res.data);
+                          renderStock();
+                        });
+                      });
+                    } else {
+                      Swal.fire('File Tidak Sesuai', r.message, 'warning');
+                    }
+                  }, 500);
+                })
+                .withFailureHandler(err => {
+                  Swal.fire('Error Server', String(err), 'error');
+                })
+                .bulkUpdateMaster(type, parsed);
+                
+            } catch(e) {
+              Swal.fire('Format Gagal', 'Struktur file rusak atau tidak didukung oleh pembaca Excel.', 'error');
+            }
+          };
+          reader.onerror = () => Swal.fire('Error Lokal', 'Browser gagal membaca file Anda.', 'error');
+          reader.readAsArrayBuffer(file);
+        }
+      });
+    }
+
+    // 3. CABANG - REQUEST PART & PUSAT EDIT HARGA
+    function editHargaModal(btn, kode, nama) {
+      const currentHarga = $(btn).attr('data-harga');
+      Swal.fire({
+        title: 'Update Harga Modal',
+        html: `
+          <div class="text-left text-sm mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <p class="font-bold text-slate-700">${nama}</p>
+            <p class="text-xs font-mono text-slate-500 mt-1">${kode}</p>
+          </div>
+          <div class="text-left">
+            <label class="block font-bold mb-2 text-slate-600 text-sm">Masukan Harga Baru (Rp)</label>
+            <input type="number" id="newHarga" class="w-full p-3 border border-slate-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none text-lg font-bold text-slate-800" value="${currentHarga}" min="0">
+          </div>
+        `,
+        showCancelButton: true,
+        cancelButtonText: 'Batal',
+        confirmButtonText: '<i class="fas fa-save mr-1"></i> Simpan Harga',
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' },
+        didOpen: () => { document.getElementById('newHarga').focus(); document.getElementById('newHarga').select(); },
+        preConfirm: () => {
+          const val = document.getElementById('newHarga').value;
+          if (val === '' || val < 0) { Swal.showValidationMessage('Masukkan angka harga yang valid'); return false; }
+          return val;
+        }
+      }).then(r => {
+        if (r.isConfirmed) {
+          const newPrice = r.value;
+          runGoogle('updateHargaModal', [kode, newPrice], res => {
+             Swal.fire({title: 'Berhasil', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end'});
+             
+             // Update DOM cell quietly
+             const formatted = 'Rp ' + Number(newPrice).toLocaleString('id');
+             $(btn).attr('data-harga', newPrice);
+             $(btn).siblings('.harga-text').text(formatted).addClass('text-emerald-600').removeClass('text-slate-700');
+             setTimeout(() => $(btn).siblings('.harga-text').removeClass('text-emerald-600').addClass('text-slate-700'), 1500);
+             
+             // Update local cache
+             try {
+                const cacheStr = localStorage.getItem('els_cache_masterData');
+                if (cacheStr) {
+                   const cache = JSON.parse(cacheStr);
+                   if (cache.data) {
+                      const item = cache.data.find(x => (x['Kode Barang']||x['kode barang']) === kode);
+                      if (item) {
+                         if (item['Harga Modal'] !== undefined) item['Harga Modal'] = newPrice;
+                         else if (item['harga modal'] !== undefined) item['harga modal'] = newPrice;
+                         localStorage.setItem('els_cache_masterData', JSON.stringify(cache));
+                         globalMasterData = cache.data;
+                      }
+                   }
+                }
+             } catch(e) {}
+          });
+        }
+      });
+    }
+
+    function addToCart(kode, nama) {
+      const ex = cart.find(c => c.kode === kode);
+      if(ex) ex.qty++; else cart.push({kode, nama, qty:1, type:'master'});
+      Swal.fire({title: 'Ditambahkan!', icon: 'success', timer: 1000, showConfirmButton: false, toast: true, position: 'top-end'});
+    }
+
+    function renderRequestPart() {
+      $('#contentArea').html(`
+        <div class="grid lg:grid-cols-3 gap-6 animate-fade-in">
+          <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
+              <h3 class="font-bold mb-4 border-b pb-3"><i class="fas fa-shopping-cart text-orange-500 mr-2"></i> Keranjang Request</h3>
+              <div id="cartContent" class="min-h-[100px]"></div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
+              <h4 class="font-bold mb-4 border-b pb-3 text-sm">Custom Request (Jika tidak ada di Master)</h4>
+              <div class="flex flex-wrap gap-2">
+                <input type="text" id="cNm" placeholder="Nama Barang" class="flex-1 p-2 border rounded-xl text-sm focus:border-orange-500 outline-none">
+                <input type="number" id="cQty" placeholder="Qty" class="w-20 p-2 border rounded-xl text-sm focus:border-orange-500 outline-none">
+                <input type="text" id="cKet" placeholder="Keterangan" class="flex-1 p-2 border rounded-xl text-sm focus:border-orange-500 outline-none">
+                <button onclick="addCustReq()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm">Tambah</button>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm p-6 h-fit border border-slate-100">
+            <h3 class="font-bold mb-4 border-b pb-3">Kirim Request</h3>
+            <p class="text-3xl font-bold text-orange-600 mb-6" id="cartCount">0 <span class="text-sm font-normal text-slate-500">Item Jenis</span></p>
+            <button onclick="submitReq()" class="w-full bg-orange-600 text-white py-3 rounded-xl font-bold hover:bg-orange-700 shadow-lg transition">Kirim Sekarang</button>
+          </div>
+        </div>`);
+      updateCartUI();
+    }
+    
+    function addCustReq() {
+      const nm=$('#cNm').val(), q=parseInt($('#cQty').val()), ket=$('#cKet').val();
+      if(!nm||!q) return Swal.fire('Oops','Nama & Qty wajib!','warning');
+      cart.push({kode:'CUSTOM', nama:nm, qty:q, desc:ket, type:'custom'});
+      $('#cNm').val(''); $('#cQty').val(''); $('#cKet').val(''); updateCartUI();
+    }
+
+    function updateCartUI() {
+      let h = cart.length ? cart.map((c,i) => `
+        <div class="flex justify-between items-center p-3 mb-2 border rounded-xl bg-slate-50">
+          <div><p class="text-sm font-bold">${c.nama}</p><p class="text-xs text-slate-500">${c.kode} ${c.desc?' - '+c.desc:''}</p></div>
+          <div class="flex gap-2 items-center">
+            <input type="number" min="1" value="${c.qty}" onchange="cart[${i}].qty=parseInt(this.value)||1" class="w-14 p-1 text-center border rounded">
+            <button onclick="cart.splice(${i},1);updateCartUI()" class="text-red-500 p-2"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>`).join('') : '<p class="text-slate-400 text-center text-sm italic py-4">Kosong</p>';
+      $('#cartContent').html(h); $('#cartCount').html(cart.length + ' <span class="text-sm font-normal text-slate-500">Item Jenis</span>');
+    }
+
+    function submitReq() {
+      if(!cart.length) return Swal.fire('Oops','Keranjang kosong','warning');
+      runGoogle('saveRequestCabang', [currentUser.cabang, cart], r => {
+        Swal.fire('Berhasil', 'Terkirim. ID: '+r.reqId, 'success'); 
+        markLocalDashboardCacheStale();
+        try {
+          const cacheStr = localStorage.getItem('els_cache_reqCabang_CABANG_' + currentUser.cabang);
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            if (cache.data) {
+               cache.data.unshift({
+                 'ID Request': r.reqId,
+                 'Tanggal': new Date().toISOString(),
+                 'Cabang': currentUser.cabang,
+                 'Detail Items': JSON.stringify(cart),
+                 'Status': 'Menunggu'
+               });
+               localStorage.setItem('els_cache_reqCabang_CABANG_' + currentUser.cabang, JSON.stringify(cache));
+            }
+          }
+        } catch(e) {}
+        
+        cart=[]; 
+        loadView('Riwayat Request Part', $('.menu-item:contains("Riwayat Request Part")'));
+      });
+    }
+
+    // 4. PUSAT - BUAT SN — gunakan cache masterData jika tersedia
+    function renderBuatSN() {
+      const cache = _getCacheSWR('masterData');
+      if(cache.data && cache.data.length) {
+        globalMasterData = cache.data; renderBuatSNUI();
+        if(!cache.stale) return;
+        
+        // Refresh di background
+        google.script.run.withSuccessHandler(res => { 
+          if(res.success) { 
+            if (JSON.stringify(cache.data) !== JSON.stringify(res.data)) {
+              globalMasterData = res.data; 
+              _setCache('masterData', res.data);
+              
+              // Cek apakah user sedang berinteraksi. Jika iya, update datanya secara diam-diam
+              // tapi JANGAN render ulang UI-nya agar ketikan user tidak hilang
+              const isUserTyping = $('#snNota').val() !== '' || $('#snKode').val() !== '';
+              if (_currentView === 'Buat SN' && buatsnCart.length === 0 && !isUserTyping) {
+                 renderBuatSNUI();
+              }
+            } else {
+              _setCache('masterData', cache.data);
+            }
+          } 
+        }).withFailureHandler(()=>{}).getMasterData();
+      } else if(globalMasterData.length) {
+        renderBuatSNUI();
+      } else {
+        runGoogleView('Buat SN', 'getMasterData', [], res => {
+          globalMasterData = res.data; _setCache('masterData', res.data); renderBuatSNUI();
+        });
+      }
+    }
+
+    function renderBuatSNUI() {
+      const opts = globalMasterData.map(m => `<option value="${m['Kode Barang']||m['kode barang']}">${m['Nama Barang']||m['nama barang']}</option>`).join('');
+      $('#contentArea').html(`
+        <div class="grid lg:grid-cols-2 gap-6 animate-fade-in">
+          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">1. Pilih Barang untuk Nota</h3>
+            <input type="text" id="snNota" class="w-full p-3 mb-4 bg-slate-50 border rounded-xl" placeholder="No. Nota / Faktur (Wajib)">
+            
+            <div class="flex flex-col gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100">
+              <input list="bList" id="snKode" class="p-3 border rounded-xl focus:border-orange-500 outline-none" placeholder="Cari Kode / Nama Barang...">
+              <datalist id="bList">${opts}</datalist>
+              <div class="flex gap-2">
+                <input type="number" id="snQty" class="w-24 p-3 border rounded-xl" placeholder="Qty" min="1" value="1">
+                <button onclick="addSnCart()" class="flex-1 bg-slate-800 text-white font-bold rounded-xl">Tambah ke Daftar</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">2. Daftar Barang Terpilih</h3>
+            <div id="snCartList" class="flex-1 overflow-y-auto min-h-[150px] mb-4 space-y-2"></div>
+            <button onclick="generateSNMulti()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-blue-700">Generate Preview SN</button>
+          </div>
+        </div>
+        
+        <div id="snPreviewArea" class="hidden mt-6 bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+           <h3 class="font-bold text-slate-800 mb-4">3. Preview SN Generated</h3>
+           <div id="snPreviewContent" class="bg-slate-50 p-4 rounded-xl max-h-60 overflow-y-auto font-mono text-sm border"></div>
+           <div class="mt-4 flex justify-end gap-3">
+             <button onclick="$('#snPreviewArea').addClass('hidden')" class="px-5 py-2 border rounded-xl text-slate-600">Batal</button>
+             <button onclick="saveSNMulti()" class="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold shadow hover:bg-emerald-700">Simpan ke Database</button>
+           </div>
+        </div>
+      `);
+      updateSnCartUI();
+    }
+
+    function addSnCart() {
+      const nota = $('#snNota').val(), k = $('#snKode').val(), q = parseInt($('#snQty').val());
+      if(!nota) return Swal.fire('Perhatian', 'Isi No Nota dulu!', 'warning');
+      if(!k||!q) return Swal.fire('Perhatian', 'Barang & Qty harus diisi', 'warning');
+      
+      const item = globalMasterData.find(m => (m['Kode Barang']||m['kode barang']) === k);
+      if(!item) return Swal.fire('Error', 'Barang tidak valid', 'error');
+      
+      const ex = buatsnCart.find(c => c.kode === k);
+      if(ex) ex.qty += q; else buatsnCart.push({ kode: k, nama: item['Nama Barang']||item['nama barang'], qty: q });
+      
+      $('#snKode').val(''); $('#snQty').val(1);
+      updateSnCartUI();
+    }
+
+    function updateSnCartUI() {
+      $('#snCartList').html(buatsnCart.length ? buatsnCart.map((c,i) => `
+        <div class="flex justify-between items-center p-2 bg-slate-50 border rounded-lg text-sm">
+          <div><b class="text-orange-600">${c.qty}x</b> ${c.nama} <br><span class="text-xs text-slate-400">${c.kode}</span></div>
+          <button onclick="buatsnCart.splice(${i},1);updateSnCartUI()" class="text-red-500 p-1"><i class="fas fa-times"></i></button>
+        </div>`).join('') : '<p class="text-xs text-slate-400 italic">Belum ada barang dipilih.</p>'
+      );
+    }
+    
+    let tempSNMulti = [];
+    function generateSNMulti() {
+      const nota = $('#snNota').val();
+      if(!nota || !buatsnCart.length) return Swal.fire('Warning','Nota dan daftar barang wajib isi!','warning');
+      
+      runGoogle('generateSNLogicMulti', [nota, buatsnCart], res => {
+        tempSNMulti = res.data;
+        let html = tempSNMulti.map(g => `<div class="mb-3 border-b pb-2"><p class="font-bold text-slate-700">${g.nama} <span class="text-xs font-normal">(${g.qty} SN)</span></p>` + 
+                   g.sns.map(s => `<span class="inline-block bg-white border px-2 py-1 m-1 rounded text-orange-600 font-bold">${s}</span>`).join('') + `</div>`).join('');
+        $('#snPreviewContent').html(html);
+        $('#snPreviewArea').removeClass('hidden');
+      });
+    }
+
+    function saveSNMulti() {
+      const nota = $('#snNota').val();
+      runGoogle('saveSNMasukMulti', [nota, tempSNMulti], r => {
+        Swal.fire('Berhasil', r.message, 'success'); 
+        markLocalDashboardCacheStale();
+        try {
+          const cacheStr = localStorage.getItem('els_cache_snMasukData');
+          if (cacheStr) {
+            const cache = JSON.parse(cacheStr);
+            if (cache.data) {
+              if (!cache.data[nota]) cache.data[nota] = [];
+              const dt = new Date().toISOString();
+              
+              const itemsToSave = r.finalItems || tempSNMulti;
+              
+              itemsToSave.forEach(item => {
+                item.sns.forEach(sn => {
+                  cache.data[nota].push({
+                    'No Nota': nota, 'Kode Barang': item.kode, 'Nama Barang': item.nama, 'SN': sn, 'Tanggal Input': dt
+                  });
+                });
+              });
+              localStorage.setItem('els_cache_snMasukData', JSON.stringify(cache));
+            }
+          }
+        } catch(e) {}
+        
+        buatsnCart=[]; tempSNMulti=[];
+        loadView('SN Masuk', $('.menu-item:contains("SN Masuk")'));
+      });
+    }
+
+    // 5. SN MASUK & CETAK NOTA UI
+    let gSNGrouped = {};
+    function renderSNMasuk() {
+      const VN = 'SN Masuk';
+      const _paintSN = (data) => {
+        gSNGrouped = data || {};
+        const keys = Object.keys(data || {});
+        if(!keys.length) return $('#contentArea').html(`<p class="text-center p-10 text-slate-500"><i class="fas fa-box-open text-slate-300 text-4xl mb-4 block"></i>Belum ada data SN Masuk</p>`);
+        let html = `<div class="bg-white rounded-2xl shadow-sm border p-6"><table id="tSn" class="w-full text-left text-sm">
+          <thead><tr class="bg-slate-50 border-b"><th class="p-4">No Nota</th><th class="p-4">Tanggal</th><th class="p-4">Jml SN</th><th class="p-4">Catatan</th><th class="p-4 text-center">Aksi</th></tr></thead><tbody>`;
+        keys.forEach(nota => {
+          const firstRow = data[nota][0] || {};
+          const tanggalRaw = firstRow['Tanggal Input'] || firstRow['tanggal input'] || firstRow['Tanggal'] || firstRow['tanggal'] || '';
+          const tanggalSort = tanggalRaw ? new Date(tanggalRaw).toISOString().split('T')[0] : '0000-00-00';
+          const tanggalDisplay = tanggalRaw ? new Date(tanggalRaw).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'}) : '-';
+          const savedCatatan = escapeHtml(firstRow['Catatan'] || firstRow['catatan'] || '');
+          
+          let totalSn = 0;
+          data[nota].forEach(row => {
+            const snStr = String(row['SN'] || row['sn'] || row['Daftar SN'] || row['daftar sn'] || '').trim();
+            if (snStr) totalSn += snStr.split(',').filter(x => x.trim() !== '').length;
+          });
+          
+          html += `<tr class="border-b hover:bg-slate-50">
+          <td class="p-4 font-bold text-orange-600">${escapeHtml(nota)}</td>
+          <td class="p-4 whitespace-nowrap text-slate-500 text-sm" data-order="${tanggalSort}">${tanggalDisplay}</td>
+          <td class="p-4">${totalSn} SN</td>
+          <td class="p-4"><input type="text" class="w-full p-2 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none transition-colors" placeholder="Ketik catatan..." value="${savedCatatan}" onblur="saveCatatanNota(this.dataset.nota, this.value)" data-nota="${escapeHtml(nota)}" title="Catatan disimpan ke database"></td>
+          <td class="p-4 text-center whitespace-nowrap">
+            <button onclick="previewSNNota('${nota}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 mr-1" title="Preview SN"><i class="fas fa-eye"></i></button>
+            <button onclick="openPrintSettings('${nota}')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg font-bold hover:bg-orange-100 mr-1" title="Cetak"><i class="fas fa-print"></i></button>
+            <button onclick="openEditSNNota('${nota}')" class="bg-amber-50 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg font-bold hover:bg-amber-100 mr-1" title="Edit"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteSNNotaUI('${nota}')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100" title="Hapus"><i class="fas fa-trash"></i></button>
+          </td></tr>`;
+        });
+        if(_currentView !== VN) return;
+        if($.fn.DataTable.isDataTable('#tSn')) try{$('#tSn').DataTable().destroy();}catch(e){}
+        $('#contentArea').html(html + '</tbody></table></div>');
+        $('#tSn').DataTable({ responsive: true, order: [[1, 'desc']], language: { search: '', searchPlaceholder: 'Cari data...', lengthMenu: 'Tampilkan _MENU_ baris' } });
+        if($('#tSn_filter .btn-refresh').length === 0) {
+          $('#tSn_filter').append(`<button onclick="forceRefresh(this)" class="btn-refresh ml-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>`);
+        }
+      };
+      runGoogleSWR(VN, 'snMasukData', 'getSNMasuk', [], _paintSN);
+    }
+
+    function previewSNNota(nota) {
+      const snList = gSNGrouped[nota];
+      if(!snList) return;
+      
+      let snArray = [];
+      let html = `<div class="max-h-[50vh] overflow-y-auto text-sm text-left border rounded-xl mb-4"><table class="w-full">
+        <thead class="bg-slate-50 sticky top-0 shadow-sm"><tr><th class="p-3">SN Part</th><th class="p-3">Nama Barang</th></tr></thead><tbody>`;
+      snList.forEach(s => {
+        const snStr = String(s['SN'] || s['sn'] || s['Daftar SN'] || s['daftar sn'] || '-');
+        const nmVal = s['Nama Barang'] || s['nama barang'] || s['Daftar Barang'] || s['daftar barang'] || '-';
+        
+        const snArr = snStr.split(',').map(x => x.trim()).filter(x => x && x !== '-');
+        if (snArr.length === 0) {
+           snArray.push('-');
+           html += `<tr class="border-b hover:bg-slate-50"><td class="p-3 font-mono font-bold text-orange-600">-</td><td class="p-3">${nmVal}</td></tr>`;
+        } else {
+           snArr.forEach(snVal => {
+             snArray.push(snVal);
+             html += `<tr class="border-b hover:bg-slate-50"><td class="p-3 font-mono font-bold text-orange-600">${snVal}</td><td class="p-3">${nmVal}</td></tr>`;
+           });
+        }
+      });
+      html += `</tbody></table></div>`;
+      
+      const snString = snArray.filter(s => s && s !== '-').join(', ');
+      
+      html += `
+        <button onclick="copyToClipboard('${snString}')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-colors border border-slate-300 flex items-center justify-center gap-2">
+          <i class="fas fa-copy"></i> Salin Semua SN (${snArray.length} Item)
+        </button>
+      `;
+      
+      Swal.fire({
+        title: `<div class="text-left font-bold text-lg border-b pb-3 mb-2">Preview SN - Nota: <span class="text-orange-600">${nota}</span></div>`,
+        html: html,
+        width: '700px',
+        showCloseButton: true,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' }
+      });
+    }
+
+    function copyToClipboard(text) {
+      if(navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          Swal.fire({icon: 'success', title: 'Tersalin!', text: 'Semua SN telah disalin ke clipboard.', timer: 1500, showConfirmButton: false});
+        });
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          Swal.fire({icon: 'success', title: 'Tersalin!', text: 'Semua SN telah disalin ke clipboard.', timer: 1500, showConfirmButton: false});
+        } catch (err) {
+          Swal.fire('Gagal Menyalin', 'Fitur copy tidak didukung di browser ini.', 'error');
+        }
+        document.body.removeChild(textArea);
+      }
+    }
+
+    function deleteSNNotaUI(nota) {
+      Swal.fire({
+        title: 'Hapus Nota?',
+        text: `Anda yakin ingin menghapus seluruh data SN untuk Nota ${nota}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Ya, Hapus!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          runGoogle('deleteSNNota', [nota], res => {
+            Swal.fire('Terhapus!', res.message, 'success');
+            markLocalDashboardCacheStale();
+            try {
+              const cache = JSON.parse(localStorage.getItem('els_cache_snMasukData'));
+              if (cache && cache.data) {
+                delete cache.data[nota];
+                localStorage.setItem('els_cache_snMasukData', JSON.stringify(cache));
+              }
+              markLocalCacheStale('masterData');
+            } catch(e) {}
+            loadView('SN Masuk', $('.menu-item:contains("SN Masuk")'));
+          });
+        }
+      });
+    }
+
+    let currentEditNota = '';
+    let currentEditItems = [];
+    
+    // Simpan catatan nota ke database (fire-and-forget, tanpa loading indicator)
+    function saveCatatanNota(nota, catatan) {
+      google.script.run
+        .withSuccessHandler(() => {})
+        .withFailureHandler(() => {})
+        .updateCatatanNota(nota, catatan);
+      // Update local cache diam-diam agar tidak berubah saat halaman di-refresh
+      try {
+        const cacheStr = localStorage.getItem('els_cache_snMasukData');
+        if (cacheStr) {
+          const cache = JSON.parse(cacheStr);
+          if (cache.data && cache.data[nota]) {
+            cache.data[nota].forEach(row => { row['Catatan'] = catatan; row['catatan'] = catatan; });
+            localStorage.setItem('els_cache_snMasukData', JSON.stringify(cache));
+          }
+        }
+      } catch(e) {}
+    }
+
+    function openEditSNNota(nota) {
+      currentEditNota = nota;
+      const snList = gSNGrouped[nota];
+      if(!snList) return;
+      
+      currentEditItems = snList.map(s => ({
+        kode: s['Kode Barang'] || s['kode barang'] || s['Kode'] || s['kode'] || '-',
+        nama: s['Nama Barang'] || s['nama barang'] || s['Daftar Barang'] || s['daftar barang'] || '-',
+        sn: s['SN'] || s['sn'] || s['Daftar SN'] || s['daftar sn'] || '-',
+        tanggal: s['Tanggal Input'] || s['tanggal input'] || s['Tanggal'] || s['tanggal'] || ''
+      }));
+      showEditSNModal();
+    }
+    
+    function syncEditInputs() {
+      for(let i=0; i<currentEditItems.length; i++) {
+        const inputVal = $(`#editSn_${i}`).val();
+        if(inputVal !== undefined) currentEditItems[i].sn = inputVal.trim().toUpperCase();
+      }
+    }
+
+    function deleteEditItem(idx) {
+      syncEditInputs();
+      currentEditItems.splice(idx, 1);
+      showEditSNModal();
+    }
+
+    function addEditItem(kode, nama) {
+      syncEditInputs();
+      $('#editSearchRes').addClass('hidden');
+      $('#editItemSearch').val('');
+      currentEditItems.push({ kode: kode, nama: nama, sn: '', tanggal: '' });
+      showEditSNModal();
+    }
+    
+    function showEditSNModal() {
+      let html = `
+        <div class="text-left text-sm mt-4">
+          <div class="max-h-[50vh] overflow-y-auto border rounded-xl mb-4 relative">
+            <table class="w-full">
+              <thead class="bg-slate-50 sticky top-0 shadow-sm z-10">
+                <tr><th class="p-3 w-10">#</th><th class="p-3">Nama Barang</th><th class="p-3">SN Part</th><th class="p-3 text-center">Hapus</th></tr>
+              </thead>
+              <tbody>
+                ${currentEditItems.length === 0 ? `<tr><td colspan="4" class="p-5 text-center text-slate-400 italic">Belum ada barang, silakan tambah di bawah</td></tr>` : currentEditItems.map((item, idx) => `
+                  <tr class="border-b hover:bg-slate-50">
+                    <td class="p-3 font-bold text-slate-400">${idx+1}</td>
+                    <td class="p-3 text-xs leading-tight font-medium">${item.nama}<br><span class="text-slate-400 font-mono">${item.kode}</span></td>
+                    <td class="p-3"><input type="text" id="editSn_${idx}" value="${item.sn}" class="w-full border rounded p-2 font-mono text-sm uppercase focus:ring-2 focus:ring-orange-500 outline-none" autocomplete="off" placeholder="Ketik SN..."></td>
+                    <td class="p-3 text-center"><button onclick="deleteEditItem(${idx})" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg transition-colors"><i class="fas fa-trash"></i></button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="bg-orange-50 p-4 rounded-xl border border-orange-100">
+            <p class="font-bold text-orange-800 mb-2 text-xs uppercase tracking-wider">Tambah Barang ke Nota Ini</p>
+            <div class="relative">
+              <div class="flex absolute inset-y-0 left-0 items-center pl-3 pointer-events-none"><i class="fas fa-search text-slate-400"></i></div>
+              <input type="text" id="editItemSearch" class="bg-white border border-orange-200 text-sm rounded-lg focus:ring-orange-500 block w-full pl-10 p-2.5 outline-none" placeholder="Ketik nama part/barang..." autocomplete="off">
+            </div>
+            <div id="editSearchRes" class="absolute z-[100] bg-white border border-slate-200 rounded-lg shadow-xl mt-1 w-[calc(100%-2rem)] max-h-60 overflow-y-auto hidden"></div>
+          </div>
+        </div>
+      `;
+      
+      Swal.fire({
+        title: `<div class="text-left font-bold text-lg border-b pb-3 mb-2">Edit Nota: <span class="text-orange-600">${currentEditNota}</span></div>`,
+        html: html,
+        width: '800px',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-save mr-2"></i> Simpan Perubahan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' },
+        didOpen: () => {
+          $('#editItemSearch').on('input', function() {
+            const v = $(this).val().toLowerCase();
+            const resBox = $('#editSearchRes');
+            if(v.length < 2) { resBox.addClass('hidden'); return; }
+            if(!globalMasterData || globalMasterData.length === 0) { resBox.html('<div class="p-3 text-slate-400 text-center">Data Master belum dimuat.</div>').removeClass('hidden'); return; }
+            
+            const matches = globalMasterData.filter(m => String(m['Nama Barang']).toLowerCase().includes(v) || String(m['Kode Barang']).toLowerCase().includes(v)).slice(0, 10);
+            if(!matches.length) { resBox.html('<div class="p-3 text-slate-400 text-center">Barang tidak ditemukan</div>').removeClass('hidden'); return; }
+            
+            resBox.html(matches.map(m => `
+              <div class="p-3 hover:bg-orange-50 cursor-pointer border-b text-left transition-colors" onclick="addEditItem('${m['Kode Barang']}', '${m['Nama Barang'].replace(/'/g, "\\'")}')">
+                <p class="font-bold text-sm text-slate-700">${m['Nama Barang']}</p>
+                <p class="text-xs text-orange-600 font-mono">${m['Kode Barang']}</p>
+              </div>
+            `).join('')).removeClass('hidden');
+          });
+          
+          $(document).on('click.editSearch', function(e) { if(!$(e.target).closest('#editItemSearch, #editSearchRes').length) $('#editSearchRes').addClass('hidden'); });
+        },
+        willClose: () => { $(document).off('click.editSearch'); },
+        preConfirm: () => {
+          syncEditInputs();
+          for(let i=0; i<currentEditItems.length; i++) {
+            if(!currentEditItems[i].sn || currentEditItems[i].sn === '') {
+              Swal.showValidationMessage(`SN pada baris ke-${i+1} tidak boleh kosong!`);
+              return false;
+            }
+          }
+          if(currentEditItems.length === 0) {
+            Swal.showValidationMessage('Nota kosong. Gunakan tombol Hapus Nota (ikon tempat sampah) jika ingin menghapus seluruhnya.');
+            return false;
+          }
+          return true;
+        }
+      }).then(r => {
+        if(r.isConfirmed) {
+          runGoogle('updateSNNota', [currentEditNota, currentEditItems], res => {
+            Swal.fire('Tersimpan', res.message, 'success');
+            markLocalDashboardCacheStale();
+            try {
+              const cacheStr = localStorage.getItem('els_cache_snMasukData');
+              if (cacheStr) {
+                const cache = JSON.parse(cacheStr);
+                if (cache.data) {
+                  cache.data[currentEditNota] = currentEditItems.map(item => ({
+                    'No Nota': currentEditNota, 'Kode Barang': item.kode, 'Nama Barang': item.nama, 'SN': item.sn, 'Tanggal Input': item.tanggal || new Date().toISOString()
+                  }));
+                  localStorage.setItem('els_cache_snMasukData', JSON.stringify(cache));
+                }
+              }
+              markLocalCacheStale('masterData'); // Mark lokal cache stok master stale
+            } catch(e) {}
+            loadView('SN Masuk', $('.menu-item:contains("SN Masuk")'));
+          });
+        }
+      });
+    }
+
+    // MOCKUP UI CETAK SESUAI GAMBAR
+    // CETAK BARCODE & QR CODE DINAMIS
+    function openPrintSettings(nota) {
+      const snList = gSNGrouped[nota];
+      if(!snList || snList.length === 0) return Swal.fire('Error', 'Tidak ada data SN pada nota ini', 'error');
+
+      // Ambil konfigurasi cetak terakhir yang tersimpan di Local Storage
+      let pCfg = {
+        algo: 'code128', preset: '50x20', snFontSize: 12, fontSize: 10, barcodeSize: 40,
+        textDisplay: 'sn_nm', textPos: 'bottom', align: 'center', anchorPos: 'center', scale: 100,
+        marginT: 1, marginB: 1, marginL: 1, marginR: 1, gap: 1
+      };
+      try { const saved = localStorage.getItem('els_print_config'); if(saved) Object.assign(pCfg, JSON.parse(saved)); } catch(e){}
+
+      // Generate checkboxes for SN
+      let allSnsForPrint = [];
+      snList.forEach(snObj => {
+          const snStr = String(snObj['SN'] || snObj['sn'] || snObj['Daftar SN'] || snObj['daftar sn'] || '-');
+          const nmVal = snObj['Nama Barang'] || snObj['nama barang'] || snObj['Daftar Barang'] || snObj['daftar barang'] || '-';
+          const kdVal = snObj['Kode Barang'] || snObj['kode barang'] || snObj['Kode'] || snObj['kode'] || '-';
+          const snArr = snStr.split(',').map(x => x.trim()).filter(x => x && x !== '-');
+          if (snArr.length > 0) {
+             snArr.forEach(s => allSnsForPrint.push({ snVal: s, nmVal, kdVal }));
+          } else {
+             allSnsForPrint.push({ snVal: '-', nmVal, kdVal });
+          }
+      });
+      
+      let snCheckboxes = allSnsForPrint.map((item, i) => {
+         return `<div class="flex items-center gap-3 p-2 border-b hover:bg-slate-50 transition-colors">
+            <input type="checkbox" id="chkSn_${i}" class="sn-checkbox w-4 h-4 text-orange-600 bg-slate-50 border-slate-300 rounded focus:ring-orange-500 cursor-pointer" checked
+                   data-sn="${item.snVal}" data-nm="${String(item.nmVal).replace(/"/g, '&quot;')}" data-kd="${String(item.kdVal).replace(/"/g, '&quot;')}">
+            <label for="chkSn_${i}" class="text-xs cursor-pointer flex-1"><span class="font-mono font-bold text-slate-700">${item.snVal}</span> <span class="text-slate-400 mx-1">|</span> <span class="text-slate-500">${item.nmVal}</span></label>
+         </div>`;
+      }).join('');
+
+      Swal.fire({
+        title: '<div class="text-left text-lg font-bold border-b pb-3 mb-2">Pengaturan Cetak Barcode</div>',
+        html: `
+          <div class="text-left text-sm text-slate-700 space-y-3">
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Algoritma Barcode</label>
+                   <select id="pAlgo" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="code128" ${pCfg.algo==='code128'?'selected':''}>Code 128 (1D)</option>
+                     <option value="code39" ${pCfg.algo==='code39'?'selected':''}>Code 39 (1D)</option>
+                     <option value="qrcode" ${pCfg.algo==='qrcode'?'selected':''}>QR Code (2D)</option>
+                   </select></div>
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Preset Kertas (LxT)</label>
+                   <select id="pPreset" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="50x20" ${pCfg.preset==='50x20'?'selected':''}>Thermal 50x20mm</option>
+                     <option value="50x30" ${pCfg.preset==='50x30'?'selected':''}>Thermal 50x30mm</option>
+                     <option value="80x50" ${pCfg.preset==='80x50'?'selected':''}>Thermal 80x50mm</option>
+                   </select></div>
+              
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Tinggi Barcode/QR (px)</label><input type="number" id="pBarS" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none" value="${pCfg.barcodeSize}" min="20" max="200"></div>
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Jarak Barcode & Teks (mm)</label><input type="number" step="0.5" id="pGap" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none" value="${pCfg.gap}" min="0" max="20"></div>
+              
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Tampilan Teks</label>
+                   <select id="pTxtDisp" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="sn" ${pCfg.textDisplay==='sn'?'selected':''}>SN Saja</option>
+                     <option value="sn_nm" ${pCfg.textDisplay==='sn_nm'?'selected':''}>SN + Nama Barang</option>
+                     <option value="sn_kd" ${pCfg.textDisplay==='sn_kd'?'selected':''}>SN + Kode Barang</option>
+                     <option value="sn_kd_nm" ${pCfg.textDisplay==='sn_kd_nm'?'selected':''}>SN + Kode + Nama Barang</option>
+                   </select></div>
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Posisi Teks</label>
+                   <select id="pTxtPos" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="right" ${pCfg.textPos==='right'?'selected':''}>Di Kanan Barcode</option>
+                     <option value="bottom" ${pCfg.textPos==='bottom'?'selected':''}>Di Bawah Barcode</option>
+                     <option value="left" ${pCfg.textPos==='left'?'selected':''}>Di Kiri Barcode</option>
+                     <option value="top" ${pCfg.textPos==='top'?'selected':''}>Di Atas Barcode</option>
+                   </select></div>
+                   
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Ukuran Font SN (px)</label><input type="number" id="pSnFs" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none" value="${pCfg.snFontSize || 12}" min="5" max="40"></div>
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Ukuran Font Sub-teks (px)</label><input type="number" id="pFs" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none" value="${pCfg.fontSize}" min="5" max="30"></div>
+                   
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Rata Teks</label>
+                   <select id="pAlign" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="center" ${pCfg.align==='center'?'selected':''}>Tengah (Center)</option>
+                     <option value="left" ${pCfg.align==='left'?'selected':''}>Kiri (Left)</option>
+                     <option value="right" ${pCfg.align==='right'?'selected':''}>Kanan (Right)</option>
+                   </select></div>
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Jangkar (Anchor) Posisi</label>
+                   <select id="pAnchor" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none">
+                     <option value="center" ${pCfg.anchorPos==='center'?'selected':''}>Tengah (Sisa Ruang Dibagi Rata)</option>
+                     <option value="flex-start" ${pCfg.anchorPos==='flex-start'?'selected':''}>Atas (Rapat Sesuai Margin)</option>
+                   </select></div>
+                   
+              <div><label class="block mb-1 text-[11px] uppercase font-bold text-slate-500">Skala Cetakan (%)</label><input type="number" id="pScale" class="w-full p-2 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-orange-500 outline-none" value="${pCfg.scale}" min="10" max="200"></div>
+            </div>
+            
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+              <p class="font-bold text-[11px] uppercase text-slate-500 mb-2">Margin Kertas (mm)</p>
+              <div class="grid grid-cols-4 gap-2">
+                 <div><label class="block mb-1 text-[10px] uppercase text-slate-400">Atas</label><input type="number" id="pMarT" class="w-full p-1.5 border rounded-md text-xs text-center font-bold" value="${pCfg.marginT}" min="0"></div>
+                 <div><label class="block mb-1 text-[10px] uppercase text-slate-400">Bawah</label><input type="number" id="pMarB" class="w-full p-1.5 border rounded-md text-xs text-center font-bold" value="${pCfg.marginB}" min="0"></div>
+                 <div><label class="block mb-1 text-[10px] uppercase text-slate-400">Kiri</label><input type="number" id="pMarL" class="w-full p-1.5 border rounded-md text-xs text-center font-bold" value="${pCfg.marginL}" min="0"></div>
+                 <div><label class="block mb-1 text-[10px] uppercase text-slate-400">Kanan</label><input type="number" id="pMarR" class="w-full p-1.5 border rounded-md text-xs text-center font-bold" value="${pCfg.marginR}" min="0"></div>
+              </div>
+            </div>
+
+            <div class="mt-4 border-t pt-4">
+               <div class="flex justify-between items-center mb-3">
+                 <span class="font-bold text-sm text-slate-800">Preview SN yang akan dicetak:</span>
+                 <div class="flex gap-2">
+                   <button type="button" onclick="$('.sn-checkbox').prop('checked', true)" class="text-[10px] font-bold uppercase bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-200 transition-colors">Centang Semua</button>
+                   <button type="button" onclick="$('.sn-checkbox').prop('checked', false)" class="text-[10px] font-bold uppercase bg-slate-200 text-slate-600 px-3 py-1.5 rounded-md hover:bg-slate-300 transition-colors">Hapus Centang</button>
+                 </div>
+               </div>
+               <div class="max-h-48 overflow-y-auto border border-slate-200 rounded-xl bg-white p-1">
+                 ${snCheckboxes}
+               </div>
+            </div>
+          </div>
+        `,
+        width: '750px',
+        showCancelButton: true,
+        cancelButtonText: 'Batal',
+        confirmButtonText: '<i class="fas fa-print mr-2"></i> Mulai Mencetak',
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' },
+        preConfirm: () => {
+           const selected = [];
+           $('.sn-checkbox:checked').each(function() {
+              selected.push({ sn: $(this).data('sn'), nm: $(this).data('nm'), kd: $(this).data('kd') });
+           });
+           
+           if(selected.length === 0) { Swal.showValidationMessage('Pilih minimal 1 SN untuk dicetak!'); return false; }
+           
+           const cfg = {
+              snList: selected,
+              algo: $('#pAlgo').val(),
+              preset: $('#pPreset').val(),
+              fontSize: parseInt($('#pFs').val()),
+              snFontSize: parseInt($('#pSnFs').val()),
+              textDisplay: $('#pTxtDisp').val(),
+              textPos: $('#pTxtPos').val(),
+              marginT: parseInt($('#pMarT').val()),
+              marginB: parseInt($('#pMarB').val()),
+              marginL: parseInt($('#pMarL').val()),
+              marginR: parseInt($('#pMarR').val()),
+              gap: parseFloat($('#pGap').val()) || 0,
+              align: $('#pAlign').val(),
+              anchorPos: $('#pAnchor').val() || 'center',
+              barcodeSize: parseInt($('#pBarS').val()),
+              scale: parseInt($('#pScale').val())
+           };
+           
+           // Simpan konfigurasi ke Local Storage agar tidak perlu setting ulang (kecuali snList-nya)
+           try {
+              const toSave = {...cfg};
+              delete toSave.snList;
+              localStorage.setItem('els_print_config', JSON.stringify(toSave));
+           } catch(e) {}
+           
+           return cfg;
+        }
+      }).then(r => {
+        if(r.isConfirmed) executePrint(r.value);
+      });
+    }
+
+    function executePrint(cfg) {
+      const [w, h] = cfg.preset.split('x'); // w = width mm, h = height mm
+      
+      // Mengatur tata letak Flexbox berdasarkan pilihan posisi teks
+      let flexDir = 'column';
+      if(cfg.textPos === 'right') flexDir = 'row';
+      else if(cfg.textPos === 'left') flexDir = 'row-reverse';
+      else if(cfg.textPos === 'top') flexDir = 'column-reverse';
+      
+      let phtml = `<style>
+        @media print {
+          @page { size: ${w}mm ${h}mm; margin: 0 !important; }
+          html, body { margin: 0 !important; padding: 0 !important; }
+          /* Menyembunyikan elemen UI utama saat mencetak */
+          #appView { display: none !important; }
+        }
+        
+        .print-wrapper {
+          transform: scale(${cfg.scale / 100});
+          transform-origin: top left;
+          width: 100%;
+        }
+        
+        .lbl-box { 
+          width: ${w}mm; 
+          height: ${h}mm; 
+          box-sizing: border-box; 
+          padding: ${cfg.marginT}mm ${cfg.marginR}mm ${cfg.marginB}mm ${cfg.marginL}mm;
+          overflow: hidden; 
+          display: flex; 
+          flex-direction: ${flexDir};
+          align-items: ${cfg.anchorPos}; 
+          justify-content: ${cfg.anchorPos};
+          gap: ${cfg.gap}mm; 
+          page-break-inside: avoid;
+          break-inside: avoid;
+          font-family: sans-serif;
+        }
+        .lbl-qr { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .lbl-qr img, .lbl-qr canvas { width: ${cfg.barcodeSize}px !important; height: ${cfg.barcodeSize}px !important; }
+        .lbl-qr svg { height: ${cfg.barcodeSize}px !important; }
+        .lbl-txt { 
+          flex-grow: 1; 
+          display: flex; 
+          flex-direction: column; 
+          justify-content: center; 
+          text-align: ${cfg.align}; 
+          min-width: 0;
+        }
+        .sn-txt { font-weight: bold; font-size: ${cfg.snFontSize}px; margin-bottom: 1px; line-height: 1; word-wrap: break-word; }
+        .nm-txt { font-size: ${cfg.fontSize}px; line-height: 1.1; word-wrap: break-word; }
+      </style><div class="print-wrapper">`;
+      
+      cfg.snList.forEach((item, i) => {
+        let txtHtml = `<div class="sn-txt">${item.sn}</div>`;
+        
+        let subTxt = '';
+        if(cfg.textDisplay === 'sn_nm') subTxt = item.nm;
+        else if(cfg.textDisplay === 'sn_kd') subTxt = item.kd;
+        else if(cfg.textDisplay === 'sn_kd_nm') subTxt = `${item.kd} - ${item.nm}`;
+        
+        if(subTxt) txtHtml += `<div class="nm-txt">${subTxt}</div>`;
+        
+        phtml += `<div class="lbl-box">
+           <div class="lbl-qr">
+              ${cfg.algo === 'qrcode' ? `<div id="qr_${i}"></div>` : `<svg id="bc_${i}"></svg>`}
+           </div>
+           <div class="lbl-txt">${txtHtml}</div>
+        </div>`;
+      });
+      
+      phtml += `</div>`;
+      $('#printContainer').html(phtml).removeClass('hidden');
+      
+      // Render Barcodes
+      cfg.snList.forEach((item, i) => {
+        if(cfg.algo === 'qrcode') {
+           // Render 4x lebih besar agar tidak blur saat dicetak
+           new QRCode(document.getElementById(`qr_${i}`), { text: item.sn, width: cfg.barcodeSize * 4, height: cfg.barcodeSize * 4, colorDark: "#000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.L });
+        } else {
+           if(typeof JsBarcode !== 'undefined') {
+             JsBarcode(`#bc_${i}`, item.sn, {
+               format: cfg.algo === 'code39' ? "CODE39" : "CODE128",
+               width: 1.5,
+               height: cfg.barcodeSize,
+               displayValue: false,
+               margin: 0
+             });
+           } else {
+             Swal.fire('Error', 'Library JsBarcode gagal dimuat', 'error');
+           }
+        }
+      });
+    
+      // Beri waktu 800ms agar rendering Svg/Canvas selesai, lalu eksekusi Print
+      setTimeout(() => {
+        window.print();
+        $('#printContainer').addClass('hidden').html(''); // cleanup setelah dialog tertutup
+      }, 800);
+    }
+
+    // 6. LIST & ALOKASI
+    function renderRequestTable(role) {
+      const VN = role === 'PUSAT' ? 'List Request Cabang' : 'Riwayat Request Part';
+      const cacheKey = `reqCabang_${role}_${currentUser.cabang}`;
+      
+      const _paintReq = (data) => {
+        if(!data || !data.length) return $('#contentArea').html(`<p class="text-center mt-10 text-slate-400"><i class="fas fa-inbox text-slate-300 text-4xl mb-4 block"></i>Belum ada data request</p>`);
+        let html = `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-fade-in"><table id="rTbl" class="w-full text-left text-sm">
+          <thead class="sticky top-0 z-10 bg-slate-50 shadow-sm"><tr class="border-b">
+            <th class="p-4">ID Request</th><th class="p-4">Tgl</th>
+            ${role==='PUSAT'?`<th class="p-4">Cabang</th>`:''}
+            <th class="p-4">Items</th><th class="p-4">Status</th>
+            ${role==='PUSAT'?`<th class="p-4 text-center">Alokasi</th>`:''}
+          </tr></thead><tbody>`;
+        data.forEach(r => {
+          let reqId = r['ID Request'] || r['id request'] || r['ID'] || r['id'] || r['No. Request'] || r['no. request'] || '-';
+          let rawItems = r['Detail Items'] || r['detail items'] || r['Data Item'] || r['data item'] || r['Data Items'] || '[]';
+          let rawStatus = r['Status'] || r['status'] || 'Menunggu';
+          
+          // Auto-fix jika kolom Status dan Detail Items terbalik di Google Sheet
+          if (String(rawStatus).trim().startsWith('[')) {
+            const temp = rawItems;
+            rawItems = rawStatus;
+            rawStatus = temp || 'Menunggu';
+          }
+          if (String(rawStatus).trim() === '[]' || !rawStatus) rawStatus = 'Menunggu';
+          
+          let items = []; try{ items = JSON.parse(rawItems); } catch(e){}
+          let list = items.map(i=>`<span class="bg-slate-100 text-xs px-2 py-1 rounded border m-1 inline-block"><b>${i.qty}x</b> ${escapeHtml(i.nama)}</span>`).join('');
+          let stat = String(rawStatus);
+          let statColor = stat.includes('Selesai') ? 'text-emerald-700 bg-emerald-100' : 'text-orange-700 bg-orange-100';
+          
+          html += `<tr class="border-b hover:bg-slate-50"><td class="p-4 font-mono text-xs">${reqId}</td><td class="p-4 whitespace-nowrap">${new Date(r['Tanggal']||r['tanggal']).toLocaleDateString('id')}</td>
+          ${role==='PUSAT'?`<td class="p-4 font-bold">${r['Cabang']||r['cabang']||'-'}</td>`:''}
+          <td class="p-4 max-w-xs">${list}</td><td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold ${statColor}">${stat}</span></td>
+          ${role==='PUSAT'?`<td class="p-4 text-center whitespace-nowrap">
+             ${!stat.includes('Selesai')?`<button onclick="openAloModal('${reqId}',${r._rowIndex},'${r['Cabang']||''}')" class="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-100 mr-1" title="Alokasi"><i class="fas fa-check-circle"></i> Alokasi</button>`:`<span class="text-emerald-500 font-bold text-xs mr-2"><i class="fas fa-check"></i> Selesai</span>`}
+             <button onclick="deleteRequestCabangUI('${reqId}')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100" title="Hapus"><i class="fas fa-trash"></i></button>
+          </td>`:''}</tr>`;
+        });
+        
+        if(_currentView !== VN) return;
+        if($.fn.DataTable.isDataTable('#rTbl')) try{$('#rTbl').DataTable().destroy();}catch(e){}
+        $('#contentArea').html(html + '</tbody></table></div>');
+        $('#rTbl').DataTable({ responsive: true, paging: false, info: true, order: [[1, 'desc']], language: { search: '', searchPlaceholder: 'Cari data...' } });
+        
+        $('#rTbl').wrap('<div class="max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200 mt-4"></div>');
+        
+        const filter = $('#rTbl_filter');
+        filter.css({'float': 'none', 'text-align': 'left'});
+        filter.addClass('flex w-full');
+        filter.find('label').addClass('w-full flex items-center');
+        filter.find('input').addClass('w-full !ml-0 rounded-xl px-4 py-2 border-slate-300 focus:border-blue-500 focus:ring-blue-500').attr('placeholder', 'Cari ID, Cabang, atau Status...');
+
+        if($('#rTbl_filter .btn-refresh').length === 0) {
+          filter.append(`<button onclick="forceRefresh(this)" class="btn-refresh ml-3 bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl border border-slate-200 transition-colors flex-shrink-0" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>`);
+        }
+      };
+      
+      runGoogleSWR(VN, cacheKey, 'getRequestCabang', [role, currentUser.cabang], _paintReq);
+    }
+
+    function deleteRequestCabangUI(reqId) {
+      Swal.fire({
+        title: 'Hapus Request?',
+        text: `Anda yakin ingin menghapus request dengan ID: ${reqId}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '<i class="fas fa-trash mr-1"></i> Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl' }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          runGoogle('deleteRequestCabang', [reqId], res => {
+            if (res.success) {
+              Swal.fire({title: 'Terhapus!', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false});
+              markLocalDashboardCacheStale();
+              try {
+                const cacheKey = `reqCabang_PUSAT_${currentUser.cabang}`;
+                const cacheStr = localStorage.getItem('els_cache_' + cacheKey);
+                if (cacheStr) {
+                   const cache = JSON.parse(cacheStr);
+                   if (cache.data) {
+                      cache.data = cache.data.filter(x => {
+                          let id = x['ID Request'] || x['id request'] || x['ID'] || x['id'] || x['No. Request'] || x['no. request'];
+                          return id !== reqId;
+                      });
+                      localStorage.setItem('els_cache_' + cacheKey, JSON.stringify(cache));
+                   }
+                }
+              } catch(e) {}
+              loadView('List Request Cabang');
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          });
+        }
+      });
+    }
+
+    function openAloModal(reqId, rowIdx, cbReq) {
+      // Pastikan globalListCabang sudah terisi, jika belum fetch dulu
+      const _doOpenAlo = () => {
+        const cbOptions = globalListCabang.map(c => `<option value="${c}">${c}</option>`).join('');
+      
+      Swal.fire({
+        title: 'Alokasi Part',
+        html: `
+          <div class="text-left text-sm space-y-4">
+            <div><label class="block font-bold mb-1">Target Alokasi <span class="text-red-500">*</span></label>
+              <select id="aTarget" class="w-full p-3 border rounded-xl" onchange="toggleTgt(this.value)">
+                <option value="Cabang">Untuk Cabang</option><option value="User">Untuk User / Pelanggan</option>
+              </select>
+            </div>
+            
+            <div id="wCabang">
+              <label class="block font-bold mb-1">Pilih Cabang</label>
+              <select id="aCabang" class="w-full p-3 border rounded-xl"><option value="${cbReq||''}">${cbReq||'--Pilih--'}</option>${cbOptions}</select>
+            </div>
+            
+            <div id="wUser" class="hidden">
+              <label class="block font-bold mb-1">No. Tanda Terima</label>
+              <input type="text" id="aUser" class="w-full p-3 border rounded-xl" placeholder="Ketik No. TT...">
+            </div>
+
+            <div><label class="block font-bold mb-1">Nomor IO <span class="text-red-500">*</span></label>
+              <input type="text" id="aIO" class="w-full p-3 border rounded-xl">
+            </div>
+            <div><label class="block font-bold mb-1">SN Part <span class="text-xs font-normal">(Koma jika banyak)</span> <span class="text-red-500">*</span></label>
+              <textarea id="aSN" class="w-full p-3 border rounded-xl font-mono text-sm" rows="3"></textarea>
+            </div>
+            <div><label class="block font-bold mb-1">Keterangan</label><input type="text" id="aKet" class="w-full p-3 border rounded-xl"></div>
+          </div>
+        `,
+        showCancelButton: true, confirmButtonText: 'Simpan & Potong Stok',
+        preConfirm: () => {
+          const t = $('#aTarget').val();
+          const tv = t === 'Cabang' ? $('#aCabang').val() : $('#aUser').val();
+          const io=$('#aIO').val(), sn=$('#aSN').val(), ket=$('#aKet').val();
+          if(!io||!sn||!tv) { Swal.showValidationMessage('Target, IO, dan SN wajib!'); return false; }
+          return {t, tv, io, sn, ket};
+        }
+        }).then(r => {
+          if(r.isConfirmed) {
+            runGoogle('prosesAlokasiSN', [reqId, rowIdx, r.value.io, r.value.sn, r.value.ket, r.value.t, r.value.tv, cbReq], res => {
+              Swal.fire('Info', res.message, 'success'); 
+              markLocalDashboardCacheStale();
+              loadView('List Request Cabang');
+            });
+          }
+        });
+      }; // end _doOpenAlo
+
+      if(!globalListCabang.length) {
+        runGoogle('getDashboardData', [currentUser.role, currentUser.cabang], res => {
+          globalListCabang = (res.data && res.data.listCabang) ? res.data.listCabang : [];
+          _doOpenAlo();
+        });
+      } else {
+        _doOpenAlo();
+      }
+    }
+
+    // Helper UI toggle di dalam SweetAlert - WAJIB pakai document.getElementById (bukan jQuery) karena delay render SweetAlert
+    function toggleTgt(val) {
+      const wCabang = document.getElementById('wCabang');
+      const wUser   = document.getElementById('wUser');
+      if(!wCabang || !wUser) return;
+      if(val==='Cabang') {
+        wCabang.classList.remove('hidden'); wUser.classList.add('hidden');
+      } else {
+        wCabang.classList.add('hidden'); wUser.classList.remove('hidden');
+      }
+    }
+
+    function renderRiwayatPusat() {
+      const VN = 'Riwayat SN Keluar';
+      const _paintRiwayat = (data) => {
+        if(!data || !data.length) return $('#contentArea').html(`<p class="text-center mt-10 text-slate-400"><i class="fas fa-inbox text-slate-300 text-4xl mb-4 block"></i>Belum ada riwayat SN keluar</p>`);
+        let html = `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-fade-in"><table id="rwTbl" class="w-full text-left text-sm">
+          <thead class="sticky top-0 z-10 bg-slate-50 shadow-sm"><tr class="border-b"><th class="p-4">No IO</th><th class="p-4">Tipe</th><th class="p-4">Tujuan</th><th class="p-4">SN</th><th class="p-4">Tgl</th></tr></thead><tbody>`;
+        data.forEach(r => {
+          html += `<tr class="border-b hover:bg-slate-50"><td class="p-4 font-bold">${escapeHtml(r['No IO']||r['no io']||'-')}</td>
+          <td class="p-4 text-xs"><span class="bg-slate-100 px-2 py-1 rounded">${escapeHtml(r['Tipe Tujuan']||'-')}</span></td>
+          <td class="p-4 font-medium">${escapeHtml(r['Tujuan']||'-')}</td><td class="p-4 font-mono font-bold text-orange-600">${escapeHtml(r['SN']||r['sn']||'-')}</td>
+          <td class="p-4">${new Date(r['Tanggal Alokasi']||r['tanggal alokasi']).toLocaleDateString('id')}</td></tr>`;
+        });
+        
+        if(_currentView !== VN) return;
+        if($.fn.DataTable.isDataTable('#rwTbl')) try{$('#rwTbl').DataTable().destroy();}catch(e){}
+        $('#contentArea').html(html + '</tbody></table></div>');
+        $('#rwTbl').DataTable({ responsive: true, paging: false, info: true, language: { search: '', searchPlaceholder: 'Cari data...' } });
+        
+        $('#rwTbl').wrap('<div class="max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200 mt-4"></div>');
+        
+        const filter = $('#rwTbl_filter');
+        filter.css({'float': 'none', 'text-align': 'left'});
+        filter.addClass('flex w-full');
+        filter.find('label').addClass('w-full flex items-center');
+        filter.find('input').addClass('w-full !ml-0 rounded-xl px-4 py-2 border-slate-300 focus:border-blue-500 focus:ring-blue-500').attr('placeholder', 'Cari Riwayat SN...');
+        
+        if($('#rwTbl_filter .btn-refresh').length === 0) {
+          filter.append(`<button onclick="forceRefresh(this)" class="btn-refresh ml-3 bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl border border-slate-200 transition-colors flex-shrink-0" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>`);
+        }
+      };
+      
+      runGoogleSWR(VN, 'riwayatSNCache', 'getRiwayatSN', [], _paintRiwayat);
+    }
+
+    // ==========================================
+    // CHAT SYSTEM LOGIC
+    // ==========================================
+    let currentChatCabang = null;
+
+    function checkUnreadChat() {
+      if(!currentUser) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success && res.count > 0) {
+            $('#chatUnreadDot').removeClass('hidden');
+          } else {
+            $('#chatUnreadDot').addClass('hidden');
+          }
+        })
+        .withFailureHandler(() => {})
+        .getChatUnreadCount(currentUser.role, currentUser.cabang);
+    }
+
+    function toggleChatDrawer() {
+      const isClosed = $('#chatDrawer').hasClass('translate-x-full');
+      if (isClosed) {
+        $('#chatDrawer').removeClass('translate-x-full');
+        $('#chatDrawerOverlay').removeClass('hidden');
+        $('#chatUnreadDot').addClass('hidden'); // Sembunyikan notif saat dibuka
+        loadChatList();
+      } else {
+        $('#chatDrawer').addClass('translate-x-full');
+        $('#chatDrawerOverlay').addClass('hidden');
+        currentChatCabang = null;
+      }
+    }
+
+    function loadChatList() {
+      $('#btnBackChat').addClass('hidden');
+      $('#chatDrawerFooter').addClass('hidden');
+      
+      if (String(currentUser.role).toUpperCase() === 'PUSAT') {
+        $('#chatDrawerTitle').text('Daftar Percakapan');
+        $('#chatDrawerBody').html('<div class="flex items-center justify-center h-full text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>');
+        
+        google.script.run
+          .withSuccessHandler(res => {
+            if(res.success) {
+              if (res.data.length === 0) {
+                $('#chatDrawerBody').html('<div class="flex flex-col items-center justify-center h-full text-slate-400"><i class="fas fa-users-slash text-4xl mb-3"></i><p>Belum ada data cabang.</p></div>');
+                return;
+              }
+              let html = res.data.map(c => `
+                <div onclick="openChatThread('${c.cabang}')" class="bg-white p-3 rounded-xl border border-slate-100 hover:border-orange-300 hover:shadow-sm cursor-pointer transition-all flex items-center gap-3">
+                  <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0 relative">
+                    <i class="fas fa-store"></i>
+                    ${c.unread > 0 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">${c.unread}</span>` : ''}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="font-bold text-slate-700 text-sm truncate">${c.cabang}</h4>
+                    <p class="text-xs text-slate-500 truncate">${c.lastMessage ? escapeHtml(c.lastMessage) : '<i>Belum ada pesan</i>'}</p>
+                  </div>
+                </div>
+              `).join('');
+              $('#chatDrawerBody').html(html);
+            } else {
+              $('#chatDrawerBody').html(`<div class="text-center text-red-500 mt-10">${res.message}</div>`);
+            }
+          })
+          .withFailureHandler(err => {
+             $('#chatDrawerBody').html(`<div class="text-center text-red-500 mt-10">Koneksi Error</div>`);
+          })
+          .getChatList(currentUser.role, currentUser.cabang);
+      } else {
+        // Cabang langsung buka thread-nya sendiri
+        openChatThread(currentUser.cabang);
+      }
+    }
+
+    function openChatThread(cabang) {
+      currentChatCabang = cabang;
+      const isPusat = String(currentUser.role).toUpperCase() === 'PUSAT';
+      
+      if (isPusat) {
+        $('#btnBackChat').removeClass('hidden');
+        $('#chatDrawerTitle').text(cabang);
+      } else {
+        $('#chatDrawerTitle').text('Chat dengan Pusat');
+      }
+      
+      $('#chatDrawerFooter').removeClass('hidden');
+      $('#chatDrawerBody').html('<div class="flex items-center justify-center h-full text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>');
+      
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            renderChatMessages(res.data);
+            checkUnreadChat(); // Hilangkan notif utama jika sudah read
+          } else {
+            $('#chatDrawerBody').html(`<div class="text-center text-red-500 mt-10">${res.message}</div>`);
+          }
+        })
+        .withFailureHandler(err => {
+            $('#chatDrawerBody').html(`<div class="text-center text-red-500 mt-10">Koneksi Error</div>`);
+        })
+        .getChatMessages(cabang, currentUser.role);
+    }
+
+    function closeChatThread() {
+      currentChatCabang = null;
+      loadChatList();
+    }
+
+    function renderChatMessages(messages) {
+      if (messages.length === 0) {
+        $('#chatDrawerBody').html('<div class="flex flex-col items-center justify-center h-full text-slate-400 opacity-50"><i class="fas fa-comments text-5xl mb-3"></i><p class="text-sm">Kirim pesan pertama Anda</p></div>');
+        return;
+      }
+      
+      const isPusat = String(currentUser.role).toUpperCase() === 'PUSAT';
+      let html = '';
+      
+      messages.forEach(msg => {
+        const isMe = (isPusat && msg.pengirim === 'PUSAT') || (!isPusat && msg.pengirim !== 'PUSAT');
+        const time = new Date(msg.waktu).toLocaleTimeString('id', { hour: '2-digit', minute: '2-digit' });
+        
+        if (isMe) {
+          html += `
+            <div class="flex justify-end animate-fade-in">
+              <div class="bg-orange-500 text-white rounded-2xl rounded-tr-none px-4 py-2 max-w-[85%] shadow-sm">
+                <p class="text-sm">${escapeHtml(msg.pesan)}</p>
+                <p class="text-[10px] text-orange-200 text-right mt-1">${time}</p>
+              </div>
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="flex justify-start animate-fade-in">
+              <div class="bg-white border border-slate-200 text-slate-700 rounded-2xl rounded-tl-none px-4 py-2 max-w-[85%] shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 mb-1">${escapeHtml(msg.pengirim)}</p>
+                <p class="text-sm">${escapeHtml(msg.pesan)}</p>
+                <p class="text-[10px] text-slate-400 text-right mt-1">${time}</p>
+              </div>
+            </div>
+          `;
+        }
+      });
+      
+      const body = $('#chatDrawerBody');
+      body.html(html);
+      body.scrollTop(body[0].scrollHeight);
+    }
+
+    function doSendChatMessage(e) {
+      e.preventDefault();
+      const input = $('#chatInput');
+      const msg = input.val().trim();
+      if (!msg || !currentChatCabang) return;
+      
+      input.val('');
+      const btn = $('#btnSendChat');
+      btn.html('<i class="fas fa-spinner fa-spin text-sm"></i>');
+      
+      // Optimistic Update
+      const time = new Date().toLocaleTimeString('id', { hour: '2-digit', minute: '2-digit' });
+      const placeholderHtml = `
+        <div class="flex justify-end animate-fade-in opacity-70">
+          <div class="bg-orange-500 text-white rounded-2xl rounded-tr-none px-4 py-2 max-w-[85%] shadow-sm">
+            <p class="text-sm">${escapeHtml(msg)}</p>
+            <p class="text-[10px] text-orange-200 text-right mt-1"><i class="far fa-clock"></i></p>
+          </div>
+        </div>
+      `;
+      // Hapus state kosong jika ada
+      if ($('#chatDrawerBody').find('.fa-comments').length > 0) {
+          $('#chatDrawerBody').html('');
+      }
+      $('#chatDrawerBody').append(placeholderHtml);
+      const body = $('#chatDrawerBody');
+      body.scrollTop(body[0].scrollHeight);
+      
+      google.script.run
+        .withSuccessHandler(res => {
+          btn.html('<i class="fas fa-paper-plane text-sm"></i>');
+          if (res.success) {
+            // Re-fetch clean messages to ensure sync and right order
+            google.script.run
+              .withSuccessHandler(res2 => { if(res2.success) renderChatMessages(res2.data); })
+              .getChatMessages(currentChatCabang, currentUser.role);
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        })
+        .withFailureHandler(() => {
+           btn.html('<i class="fas fa-paper-plane text-sm"></i>');
+           Swal.fire('Error', 'Koneksi terputus', 'error');
+        })
+        .saveChatMessage(currentChatCabang, currentUser.role, currentUser.username, msg);
+    }
+
+  </script>
+</body>
+</html>
